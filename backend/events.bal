@@ -1,0 +1,178 @@
+import ballerina/http;
+import ballerina/lang.runtime;
+import ballerina/mcp;
+import ballerina/time;
+
+configurable int eventJournalCapacity = 1000;
+
+isolated class EventJournal {
+    private int nextSequence = 1;
+    private (readonly & InspectorEvent)[] events = [];
+
+    isolated function append(InspectorEvent eventTemplate) {
+        int sequence;
+        lock {
+            sequence = self.nextSequence;
+            self.nextSequence += 1;
+        }
+        eventTemplate.sequence = sequence;
+        eventTemplate.timestamp = time:utcToString(time:utcNow());
+        readonly & InspectorEvent eventValue = eventTemplate.cloneReadOnly();
+        lock {
+            self.events.push(eventValue);
+            if self.events.length() > eventJournalCapacity {
+                _ = self.events.remove(0);
+            }
+        }
+    }
+
+    isolated function after(int sequence) returns readonly & InspectorEvent[] {
+        lock {
+            (readonly & InspectorEvent)[] selectedEvents = [];
+            foreach readonly & InspectorEvent eventValue in self.events {
+                if eventValue.sequence > sequence {
+                    selectedEvents.push(eventValue);
+                }
+            }
+            return selectedEvents.cloneReadOnly();
+        }
+    }
+
+    isolated function nextAfter(int sequence) returns readonly & InspectorEvent? {
+        lock {
+            foreach readonly & InspectorEvent eventValue in self.events {
+                if eventValue.sequence > sequence {
+                    return eventValue;
+                }
+            }
+            return ();
+        }
+    }
+}
+
+isolated class EventStore {
+    private map<EventJournal> journals = {};
+
+    isolated function open(string connectionId) {
+        lock {
+            self.journals[connectionId] = new;
+        }
+    }
+
+    isolated function close(string connectionId) {
+        lock {
+            _ = self.journals.remove(connectionId);
+        }
+    }
+
+    isolated function exists(string connectionId) returns boolean {
+        lock {
+            return self.journals.hasKey(connectionId);
+        }
+    }
+
+    isolated function append(string connectionId, InspectorEvent eventValue) {
+        EventJournal? journal;
+        lock {
+            journal = self.journals[connectionId];
+        }
+        if journal is EventJournal {
+            journal.append(eventValue);
+        }
+    }
+
+    isolated function after(string connectionId, int sequence) returns readonly & InspectorEvent[]? {
+        EventJournal? journal;
+        lock {
+            journal = self.journals[connectionId];
+        }
+        if journal is EventJournal {
+            return journal.after(sequence);
+        }
+        return ();
+    }
+
+    isolated function nextAfter(string connectionId, int sequence) returns readonly & InspectorEvent? {
+        EventJournal? journal;
+        lock {
+            journal = self.journals[connectionId];
+        }
+        if journal is EventJournal {
+            return journal.nextAfter(sequence);
+        }
+        return ();
+    }
+}
+
+final EventStore eventStore = new;
+
+isolated class InspectorClientObserver {
+    private final string connectionId;
+
+    isolated function init(string connectionId) {
+        self.connectionId = connectionId;
+    }
+
+    public isolated function onEvent(readonly & mcp:ClientEvent clientEvent) {
+        eventStore.append(self.connectionId, {
+            sequence: 0,
+            timestamp: "",
+            connectionId: self.connectionId,
+            eventType: clientEvent.eventType.toString(),
+            eventTarget: clientEvent.eventTarget.toString(),
+            eventUrl: clientEvent.eventUrl,
+            httpMethod: clientEvent.httpMethod,
+            statusCode: clientEvent.statusCode,
+            eventHeaders: clientEvent.eventHeaders.clone(),
+            eventBody: clientEvent.eventBody,
+            eventMessage: clientEvent.eventMessage
+        });
+    }
+}
+
+isolated class EventIterator {
+    private final string connectionId;
+    private int sequence;
+
+    isolated function init(string connectionId, int sequence) {
+        self.connectionId = connectionId;
+        self.sequence = sequence;
+    }
+
+    public isolated function next() returns record {|http:SseEvent value;|}|error? {
+        while eventStore.exists(self.connectionId) {
+            int currentSequence;
+            lock {
+                currentSequence = self.sequence;
+            }
+            readonly & InspectorEvent? eventValue = eventStore.nextAfter(self.connectionId, currentSequence);
+            if eventValue is readonly & InspectorEvent {
+                lock {
+                    self.sequence = eventValue.sequence;
+                }
+                json eventJson = eventValue;
+                http:SseEvent sseEvent = {
+                    id: eventValue.sequence.toString(),
+                    event: eventValue.eventType,
+                    data: eventJson.toJsonString()
+                };
+                return {value: sseEvent};
+            }
+            runtime:sleep(0.2);
+        }
+        return ();
+    }
+}
+
+isolated function appendLifecycleEvent(string connectionId, string eventType, ConnectionState state,
+        string? eventMessage = (), string? authorizationUrl = ()) {
+    eventStore.append(connectionId, {
+        sequence: 0,
+        timestamp: "",
+        connectionId,
+        eventType,
+        eventTarget: "inspector",
+        eventMessage: eventMessage ?: state,
+        authorizationUrl
+    });
+}
