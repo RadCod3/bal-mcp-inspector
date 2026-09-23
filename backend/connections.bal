@@ -1,14 +1,19 @@
+import ballerina/jwt;
 import ballerina/mcp;
 import ballerina/uuid;
 
 isolated class ConnectionSession {
+    final string browserSessionId;
     final string connectionId;
     final string serverUrl;
     final mcp:StreamableHttpClient mcpClient;
     private ConnectionState state = "connecting";
     private string? errorMessage = ();
+    private (readonly & mcp:ConnectionInfo)? connectionInfo = ();
 
-    isolated function init(string connectionId, string serverUrl, mcp:StreamableHttpClient mcpClient) {
+    isolated function init(string browserSessionId, string connectionId, string serverUrl,
+            mcp:StreamableHttpClient mcpClient) {
+        self.browserSessionId = browserSessionId;
         self.connectionId = connectionId;
         self.serverUrl = serverUrl;
         self.mcpClient = mcpClient;
@@ -20,7 +25,8 @@ isolated class ConnectionSession {
                 connectionId: self.connectionId,
                 serverUrl: self.serverUrl,
                 state: self.state,
-                errorMessage: self.errorMessage
+                errorMessage: self.errorMessage,
+                connectionInfo: self.connectionInfo
             };
         }
     }
@@ -29,6 +35,14 @@ isolated class ConnectionSession {
         lock {
             self.state = state;
             self.errorMessage = errorMessage;
+        }
+    }
+
+    isolated function setConnected(mcp:ConnectionInfo connectionInfo) {
+        lock {
+            self.state = "connected";
+            self.errorMessage = ();
+            self.connectionInfo = connectionInfo.cloneReadOnly();
         }
     }
 }
@@ -48,6 +62,35 @@ isolated class ConnectionRegistry {
         }
     }
 
+    isolated function getOwned(string browserSessionId, string connectionId) returns ConnectionSession? {
+        ConnectionSession? session = self.get(connectionId);
+        if session is ConnectionSession && session.browserSessionId == browserSessionId {
+            return session;
+        }
+        return ();
+    }
+
+    isolated function connectionIds() returns readonly & string[] {
+        lock {
+            string[] ids = [];
+            foreach string connectionId in self.sessions.keys() {
+                ids.push(connectionId);
+            }
+            return ids.cloneReadOnly();
+        }
+    }
+
+    isolated function list(string browserSessionId) returns ConnectionStatus[] {
+        ConnectionStatus[] statuses = [];
+        foreach string connectionId in self.connectionIds() {
+            ConnectionSession? session = self.getOwned(browserSessionId, connectionId);
+            if session is ConnectionSession {
+                statuses.push(session.status());
+            }
+        }
+        return statuses;
+    }
+
     isolated function setState(string connectionId, ConnectionState state, string? errorMessage = ()) {
         ConnectionSession? session = self.get(connectionId);
         if session is ConnectionSession {
@@ -60,9 +103,64 @@ isolated class ConnectionRegistry {
             return self.sessions.remove(connectionId);
         }
     }
+
+    isolated function removeOwned(string browserSessionId, string connectionId) returns ConnectionSession? {
+        ConnectionSession? session = self.getOwned(browserSessionId, connectionId);
+        if session is () {
+            return ();
+        }
+        return self.remove(connectionId);
+    }
 }
 
 final ConnectionRegistry connectionRegistry = new;
+
+isolated function createPrivateKeyJwtAuthentication(PrivateKeyJwtAuthentication authConfig)
+        returns mcp:PrivateKeyJwtConfig {
+    jwt:IssuerSignatureConfig signatureConfig;
+    PrivateKeySource key = authConfig.key;
+    if key is KeyFileSource {
+        record {|
+            string keyFile;
+            string keyPassword?;
+        |} keyFileConfig = {keyFile: key.path};
+        if key.password is string {
+            keyFileConfig.keyPassword = key.password;
+        }
+        signatureConfig = {
+            algorithm: authConfig.algorithm,
+            config: keyFileConfig
+        };
+    } else {
+        signatureConfig = {
+            algorithm: authConfig.algorithm,
+            config: {
+                keyStore: {
+                    path: key.path,
+                    password: key.password
+                },
+                keyAlias: key.keyAlias,
+                keyPassword: key.keyPassword
+            }
+        };
+    }
+    mcp:PrivateKeyJwtConfig clientAuth = {signatureConfig};
+    if authConfig.keyId is string {
+        clientAuth.keyId = authConfig.keyId;
+    }
+    return clientAuth;
+}
+
+isolated function createAuthenticatedClient(ClientSecretAuthentication|PrivateKeyJwtAuthentication authConfig)
+        returns mcp:ClientAuth {
+    if authConfig is ClientSecretAuthentication {
+        return {
+            clientSecret: authConfig.clientSecret,
+            authMethod: authConfig.authMethod
+        };
+    }
+    return createPrivateKeyJwtAuthentication(authConfig);
+}
 
 isolated function createAuthorizationCodeOAuthConfig(string connectionId, AuthorizationCodeAuthConfig authConfig)
         returns mcp:OAuthConfig {
@@ -70,12 +168,34 @@ isolated function createAuthorizationCodeOAuthConfig(string connectionId, Author
         clientId: authConfig.clientId,
         issuer: authConfig.issuer
     };
-    string? clientSecret = authConfig.clientSecret;
-    if clientSecret is string {
-        clientConfig.clientAuth = <mcp:ClientSecretConfig>{
-            clientSecret,
-            authMethod: authConfig.clientSecretMethod
-        };
+    AuthorizationCodeClientAuthentication selectedClientAuth = authConfig.clientAuth;
+    if selectedClientAuth is ClientSecretAuthentication ||
+            selectedClientAuth is PrivateKeyJwtAuthentication {
+        clientConfig.clientAuth = createAuthenticatedClient(selectedClientAuth);
+    }
+    mcp:AuthorizationRedirectHandler onRedirect = isolated function(string authorizationUrl) returns error? {
+        return redirectHandler(connectionId, authorizationUrl);
+    };
+    mcp:AuthorizationCallbackHandler onCallback = isolated function() returns mcp:AuthorizationCallbackParams|error {
+        return callbackHandler(connectionId);
+    };
+    return {
+        grant: {
+            clientConfig,
+            redirectUri: authConfig.redirectUri,
+            redirectHandler: onRedirect,
+            callbackHandler: onCallback
+        },
+        scopes: authConfig.scopes
+    };
+}
+
+isolated function createCimdAuthorizationCodeOAuthConfig(string connectionId,
+        CimdAuthorizationCodeAuthConfig authConfig) returns mcp:OAuthConfig {
+    mcp:CimdAuthorizationCodeConfig clientConfig = {url: authConfig.url};
+    CimdAuthorizationCodeClientAuthentication selectedClientAuth = authConfig.clientAuth;
+    if selectedClientAuth is PrivateKeyJwtAuthentication {
+        clientConfig.clientAuth = createPrivateKeyJwtAuthentication(selectedClientAuth);
     }
     mcp:AuthorizationRedirectHandler onRedirect = isolated function(string authorizationUrl) returns error? {
         return redirectHandler(connectionId, authorizationUrl);
@@ -100,19 +220,29 @@ isolated function createClientCredentialsOAuthConfig(ClientCredentialsAuthConfig
             clientConfig: {
                 clientId: authConfig.clientId,
                 issuer: authConfig.issuer,
-                clientAuth: {
-                    clientSecret: authConfig.clientSecret,
-                    authMethod: authConfig.clientSecretMethod
-                }
+                clientAuth: createAuthenticatedClient(authConfig.clientAuth)
             }
         },
         scopes: authConfig.scopes
     };
 }
 
-isolated function createConnection(CreateConnectionRequest request) returns CreateConnectionResponse|error {
+isolated function createCimdClientCredentialsOAuthConfig(CimdClientCredentialsAuthConfig authConfig)
+        returns mcp:OAuthConfig {
+    return {
+        grant: {
+            clientConfig: {
+                url: authConfig.url,
+                clientAuth: createPrivateKeyJwtAuthentication(authConfig.clientAuth)
+            }
+        },
+        scopes: authConfig.scopes
+    };
+}
+
+isolated function createConnection(string browserSessionId, CreateConnectionRequest request)
+        returns CreateConnectionResponse|error {
     string connectionId = uuid:createType4AsString();
-    eventStore.open(connectionId);
     mcp:ClientObserver observer = new InspectorClientObserver(connectionId);
     mcp:StreamableHttpClient mcpClient;
     AuthConfig selectedAuth = request.auth;
@@ -123,13 +253,24 @@ isolated function createConnection(CreateConnectionRequest request) returns Crea
         mcpClient = check new (request.serverUrl, protocolMode = request.protocolMode, auth = oauthConfig,
             observer = observer
         );
-    } else {
+    } else if selectedAuth is CimdAuthorizationCodeAuthConfig {
+        mcp:OAuthConfig oauthConfig = createCimdAuthorizationCodeOAuthConfig(connectionId, selectedAuth);
+        mcpClient = check new (request.serverUrl, protocolMode = request.protocolMode, auth = oauthConfig,
+            observer = observer
+        );
+    } else if selectedAuth is ClientCredentialsAuthConfig {
         mcp:OAuthConfig oauthConfig = createClientCredentialsOAuthConfig(selectedAuth);
         mcpClient = check new (request.serverUrl, protocolMode = request.protocolMode, auth = oauthConfig,
             observer = observer
         );
+    } else {
+        mcp:OAuthConfig oauthConfig = createCimdClientCredentialsOAuthConfig(selectedAuth);
+        mcpClient = check new (request.serverUrl, protocolMode = request.protocolMode, auth = oauthConfig,
+            observer = observer
+        );
     }
-    ConnectionSession session = new (connectionId, request.serverUrl, mcpClient);
+    eventStore.open(connectionId);
+    ConnectionSession session = new (browserSessionId, connectionId, request.serverUrl, mcpClient);
     connectionRegistry.add(session);
     appendLifecycleEvent(connectionId, "connection.connecting", "connecting");
     _ = start connect(session);
@@ -141,11 +282,18 @@ isolated function connect(ConnectionSession session) {
     mcp:ConnectionInfo|mcp:ClientError result = mcpClient->connect(
         clientInfo = {name: "Ballerina MCP Inspector", version: "0.1.0"});
     if result is mcp:ClientError {
+        if session.status().state == "closed" {
+            return;
+        }
+        oauthCallbackBroker.cancel(session.connectionId);
         string message = result.message();
         session.setState("failed", message);
         appendLifecycleEvent(session.connectionId, "connection.failed", "failed", eventMessage = message);
         return;
     }
-    session.setState("connected");
+    if session.status().state == "closed" {
+        return;
+    }
+    session.setConnected(result);
     appendLifecycleEvent(session.connectionId, "connection.connected", "connected");
 }

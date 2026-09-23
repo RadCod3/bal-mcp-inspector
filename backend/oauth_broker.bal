@@ -5,11 +5,19 @@ configurable int oauthCallbackTimeoutSeconds = 300;
 
 isolated class OAuthCallbackBroker {
     private map<string> connectionByState = {};
+    private map<string> stateByConnection = {};
     private map<readonly & mcp:AuthorizationCallbackParams> callbackByConnection = {};
 
     isolated function register(string connectionId, string state) {
         lock {
+            string? existingState = self.stateByConnection[connectionId];
+            if existingState is string {
+                if self.connectionByState.hasKey(existingState) {
+                    _ = self.connectionByState.remove(existingState);
+                }
+            }
             self.connectionByState[state] = connectionId;
+            self.stateByConnection[connectionId] = state;
         }
     }
 
@@ -21,6 +29,9 @@ isolated class OAuthCallbackBroker {
                 return error("Unknown or expired OAuth state");
             }
             _ = self.connectionByState.remove(state);
+            if self.stateByConnection.hasKey(connectionId) {
+                _ = self.stateByConnection.remove(connectionId);
+            }
             self.callbackByConnection[connectionId] = readonlyParams;
         }
     }
@@ -34,10 +45,29 @@ isolated class OAuthCallbackBroker {
                     _ = self.callbackByConnection.remove(connectionId);
                     return callbackParams;
                 }
+                if !self.stateByConnection.hasKey(connectionId) {
+                    return error("OAuth authorization was cancelled");
+                }
             }
             runtime:sleep(0.2);
         }
+        self.cancel(connectionId);
         return error("Timed out waiting for the OAuth callback");
+    }
+
+    isolated function cancel(string connectionId) {
+        lock {
+            string? state = self.stateByConnection[connectionId];
+            if state is string {
+                _ = self.stateByConnection.remove(connectionId);
+                if self.connectionByState.hasKey(state) {
+                    _ = self.connectionByState.remove(state);
+                }
+            }
+            if self.callbackByConnection.hasKey(connectionId) {
+                _ = self.callbackByConnection.remove(connectionId);
+            }
+        }
     }
 }
 
