@@ -8,21 +8,32 @@ configurable int eventJournalCapacity = 1000;
 isolated class EventJournal {
     private int nextSequence = 1;
     private (readonly & InspectorEvent)[] events = [];
+    private boolean open = true;
 
     isolated function append(InspectorEvent eventTemplate) {
-        int sequence;
         lock {
-            sequence = self.nextSequence;
+            int sequence = self.nextSequence;
             self.nextSequence += 1;
-        }
-        eventTemplate.sequence = sequence;
-        eventTemplate.timestamp = time:utcToString(time:utcNow());
-        readonly & InspectorEvent eventValue = eventTemplate.cloneReadOnly();
-        lock {
+            eventTemplate.sequence = sequence;
+            eventTemplate.timestamp = time:utcToString(time:utcNow());
+            readonly & InspectorEvent eventValue = eventTemplate.cloneReadOnly();
             self.events.push(eventValue);
-            if self.events.length() > eventJournalCapacity {
+            int capacity = eventJournalCapacity > 0 ? eventJournalCapacity : 1;
+            if self.events.length() > capacity {
                 _ = self.events.remove(0);
             }
+        }
+    }
+
+    isolated function close() {
+        lock {
+            self.open = false;
+        }
+    }
+
+    isolated function isOpen() returns boolean {
+        lock {
+            return self.open;
         }
     }
 
@@ -60,6 +71,16 @@ isolated class EventStore {
     }
 
     isolated function close(string connectionId) {
+        EventJournal? journal;
+        lock {
+            journal = self.journals[connectionId];
+        }
+        if journal is EventJournal {
+            journal.close();
+        }
+    }
+
+    isolated function remove(string connectionId) {
         lock {
             _ = self.journals.remove(connectionId);
         }
@@ -69,6 +90,14 @@ isolated class EventStore {
         lock {
             return self.journals.hasKey(connectionId);
         }
+    }
+
+    isolated function isOpen(string connectionId) returns boolean {
+        EventJournal? journal;
+        lock {
+            journal = self.journals[connectionId];
+        }
+        return journal is EventJournal && journal.isOpen();
     }
 
     isolated function append(string connectionId, InspectorEvent eventValue) {
@@ -158,10 +187,23 @@ isolated class EventIterator {
                 };
                 return {value: sseEvent};
             }
+            if !eventStore.isOpen(self.connectionId) {
+                return ();
+            }
             runtime:sleep(0.2);
         }
         return ();
     }
+}
+
+configurable int closedEventRetentionSeconds = 60;
+
+isolated function expireEventJournal(string connectionId) {
+    int retention = closedEventRetentionSeconds > 0 ? closedEventRetentionSeconds : 1;
+    foreach int _ in 1 ... retention {
+        runtime:sleep(1.0);
+    }
+    eventStore.remove(connectionId);
 }
 
 isolated function appendLifecycleEvent(string connectionId, string eventType, ConnectionState state,
