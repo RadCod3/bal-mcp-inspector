@@ -1,4 +1,6 @@
 .DS_Store
 backend/target/
+backend/Config.toml
+backend/secrets/
 frontend/node_modules/
 frontend/dist/

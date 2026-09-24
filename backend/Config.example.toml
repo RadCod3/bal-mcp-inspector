@@ -1,0 +1,12 @@
+# Public HTTPS origin of this backend. CIMD client IDs, the JWKS URI, and the
+# default OAuth callback are all hosted by this service under this origin.
+cimdPublicBaseUrl = "https://inspector-backend.example.com"
+
+# Optional callback override. Leave empty to use <cimdPublicBaseUrl>/callback.
+cimdRedirectUri = ""
+
+# Backend-only signing material. Never expose these files to the frontend.
+cimdPrivateKeyPath = "./secrets/cimd-private-key.pem"
+cimdPrivateKeyPassword = ""
+cimdJwksPath = "./secrets/cimd-jwks.json"
+cimdKeyId = "mcp-inspector-rs256"

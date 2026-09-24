@@ -1,4 +1,3 @@
-import ballerina/jwt;
 import ballerina/mcp;
 import ballerina/uuid;
 
@@ -115,64 +114,16 @@ isolated class ConnectionRegistry {
 
 final ConnectionRegistry connectionRegistry = new;
 
-isolated function createPrivateKeyJwtAuthentication(PrivateKeyJwtAuthentication authConfig)
-        returns mcp:PrivateKeyJwtConfig {
-    jwt:IssuerSignatureConfig signatureConfig;
-    PrivateKeySource key = authConfig.key;
-    if key is KeyFileSource {
-        record {|
-            string keyFile;
-            string keyPassword?;
-        |} keyFileConfig = {keyFile: key.path};
-        if key.password is string {
-            keyFileConfig.keyPassword = key.password;
-        }
-        signatureConfig = {
-            algorithm: authConfig.algorithm,
-            config: keyFileConfig
-        };
-    } else {
-        signatureConfig = {
-            algorithm: authConfig.algorithm,
-            config: {
-                keyStore: {
-                    path: key.path,
-                    password: key.password
-                },
-                keyAlias: key.keyAlias,
-                keyPassword: key.keyPassword
-            }
-        };
-    }
-    mcp:PrivateKeyJwtConfig clientAuth = {signatureConfig};
-    if authConfig.keyId is string {
-        clientAuth.keyId = authConfig.keyId;
-    }
-    return clientAuth;
-}
-
-isolated function createAuthenticatedClient(ClientSecretAuthentication|PrivateKeyJwtAuthentication authConfig)
-        returns mcp:ClientAuth {
-    if authConfig is ClientSecretAuthentication {
-        return {
-            clientSecret: authConfig.clientSecret,
-            authMethod: authConfig.authMethod
-        };
-    }
-    return createPrivateKeyJwtAuthentication(authConfig);
-}
-
 isolated function createAuthorizationCodeOAuthConfig(string connectionId, AuthorizationCodeAuthConfig authConfig)
         returns mcp:OAuthConfig {
     mcp:PreRegisteredAuthorizationCodeConfig clientConfig = {
         clientId: authConfig.clientId,
-        issuer: authConfig.issuer
+        issuer: authConfig.issuer,
+        clientAuth: {
+            clientSecret: authConfig.clientAuth.clientSecret,
+            authMethod: authConfig.clientAuth.authMethod
+        }
     };
-    AuthorizationCodeClientAuthentication selectedClientAuth = authConfig.clientAuth;
-    if selectedClientAuth is ClientSecretAuthentication ||
-            selectedClientAuth is PrivateKeyJwtAuthentication {
-        clientConfig.clientAuth = createAuthenticatedClient(selectedClientAuth);
-    }
     mcp:AuthorizationRedirectHandler onRedirect = isolated function(string authorizationUrl) returns error? {
         return redirectHandler(connectionId, authorizationUrl);
     };
@@ -191,11 +142,10 @@ isolated function createAuthorizationCodeOAuthConfig(string connectionId, Author
 }
 
 isolated function createCimdAuthorizationCodeOAuthConfig(string connectionId,
-        CimdAuthorizationCodeAuthConfig authConfig) returns mcp:OAuthConfig {
-    mcp:CimdAuthorizationCodeConfig clientConfig = {url: authConfig.url};
-    CimdAuthorizationCodeClientAuthentication selectedClientAuth = authConfig.clientAuth;
-    if selectedClientAuth is PrivateKeyJwtAuthentication {
-        clientConfig.clientAuth = createPrivateKeyJwtAuthentication(selectedClientAuth);
+        CimdAuthorizationCodeAuthConfig authConfig) returns mcp:OAuthConfig|error {
+    mcp:CimdAuthorizationCodeConfig clientConfig = {url: cimdProfileUrl(authConfig.profile)};
+    if authConfig.profile != "none" {
+        clientConfig.clientAuth = check createCimdPrivateKeyJwtAuthentication();
     }
     mcp:AuthorizationRedirectHandler onRedirect = isolated function(string authorizationUrl) returns error? {
         return redirectHandler(connectionId, authorizationUrl);
@@ -206,7 +156,7 @@ isolated function createCimdAuthorizationCodeOAuthConfig(string connectionId,
     return {
         grant: {
             clientConfig,
-            redirectUri: authConfig.redirectUri,
+            redirectUri: effectiveCimdRedirectUri(),
             redirectHandler: onRedirect,
             callbackHandler: onCallback
         },
@@ -220,7 +170,10 @@ isolated function createClientCredentialsOAuthConfig(ClientCredentialsAuthConfig
             clientConfig: {
                 clientId: authConfig.clientId,
                 issuer: authConfig.issuer,
-                clientAuth: createAuthenticatedClient(authConfig.clientAuth)
+                clientAuth: {
+                    clientSecret: authConfig.clientAuth.clientSecret,
+                    authMethod: authConfig.clientAuth.authMethod
+                }
             }
         },
         scopes: authConfig.scopes
@@ -228,12 +181,12 @@ isolated function createClientCredentialsOAuthConfig(ClientCredentialsAuthConfig
 }
 
 isolated function createCimdClientCredentialsOAuthConfig(CimdClientCredentialsAuthConfig authConfig)
-        returns mcp:OAuthConfig {
+        returns mcp:OAuthConfig|error {
     return {
         grant: {
             clientConfig: {
-                url: authConfig.url,
-                clientAuth: createPrivateKeyJwtAuthentication(authConfig.clientAuth)
+                url: cimdProfileUrl(authConfig.profile),
+                clientAuth: check createCimdPrivateKeyJwtAuthentication()
             }
         },
         scopes: authConfig.scopes
@@ -254,7 +207,7 @@ isolated function createConnection(string browserSessionId, CreateConnectionRequ
             observer = observer
         );
     } else if selectedAuth is CimdAuthorizationCodeAuthConfig {
-        mcp:OAuthConfig oauthConfig = createCimdAuthorizationCodeOAuthConfig(connectionId, selectedAuth);
+        mcp:OAuthConfig oauthConfig = check createCimdAuthorizationCodeOAuthConfig(connectionId, selectedAuth);
         mcpClient = check new (request.serverUrl, protocolMode = request.protocolMode, auth = oauthConfig,
             observer = observer
         );
@@ -263,11 +216,13 @@ isolated function createConnection(string browserSessionId, CreateConnectionRequ
         mcpClient = check new (request.serverUrl, protocolMode = request.protocolMode, auth = oauthConfig,
             observer = observer
         );
-    } else {
-        mcp:OAuthConfig oauthConfig = createCimdClientCredentialsOAuthConfig(selectedAuth);
+    } else if selectedAuth is CimdClientCredentialsAuthConfig {
+        mcp:OAuthConfig oauthConfig = check createCimdClientCredentialsOAuthConfig(selectedAuth);
         mcpClient = check new (request.serverUrl, protocolMode = request.protocolMode, auth = oauthConfig,
             observer = observer
         );
+    } else {
+        return error("Unsupported authorization configuration");
     }
     eventStore.open(connectionId);
     ConnectionSession session = new (browserSessionId, connectionId, request.serverUrl, mcpClient);
