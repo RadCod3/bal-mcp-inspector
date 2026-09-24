@@ -2,3 +2,5 @@ target
 Dockerfile
 .dockerignore
 .choreo
+secrets
+Config.toml

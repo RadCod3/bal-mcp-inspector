@@ -159,6 +159,9 @@ isolated class InspectorClientObserver {
     }
 }
 
+// Idle streams get a comment this often so the listener's idle timeout and proxies keep them open
+configurable int eventStreamHeartbeatSeconds = 20;
+
 isolated class EventIterator {
     private final string connectionId;
     private int sequence;
@@ -169,6 +172,8 @@ isolated class EventIterator {
     }
 
     public isolated function next() returns record {|http:SseEvent value;|}|error? {
+        int heartbeatPolls = (eventStreamHeartbeatSeconds > 0 ? eventStreamHeartbeatSeconds : 1) * 5;
+        int idlePolls = 0;
         while eventStore.exists(self.connectionId) {
             int currentSequence;
             lock {
@@ -189,6 +194,10 @@ isolated class EventIterator {
             }
             if !eventStore.isOpen(self.connectionId) {
                 return ();
+            }
+            idlePolls += 1;
+            if idlePolls >= heartbeatPolls {
+                return {value: {comment: "keepalive"}};
             }
             runtime:sleep(0.2);
         }
