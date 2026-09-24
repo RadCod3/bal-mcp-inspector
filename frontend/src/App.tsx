@@ -23,6 +23,7 @@ import { api } from "./api";
 import { CodeBlock } from "./components/CodeBlock";
 import { RequestLog } from "./components/RequestLog";
 import { hostOf } from "./requests";
+import { routePath, useRoute, type View } from "./router";
 import type {
   AuthConfig,
   CimdProfile,
@@ -70,7 +71,6 @@ const EVENT_TYPES = [
 
 type AuthType = "none" | "authorization_code" | "client_credentials" |
   "cimd_authorization_code" | "cimd_client_credentials";
-type View = "requests" | "tools";
 
 interface ConnectionForm {
   serverUrl: string;
@@ -163,15 +163,16 @@ function defaultArguments(tool: McpTool) {
 export default function App() {
   const [sessionId] = useState(getBrowserSessionId);
   const [theme, setTheme] = useState<Theme>(initialTheme);
-  const [connectionId, setConnectionIdState] = useState(() => localStorage.getItem(CONNECTION_KEY) ?? "");
+  const [route, navigate] = useRoute();
+  const connectionId = route.page === "connection" ? route.connectionId : "";
+  const view: View = route.page === "connection" ? route.view : "requests";
+  const showForm = route.page === "new";
   const [connections, setConnections] = useState<ConnectionStatus[]>([]);
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [events, setEvents] = useState<InspectorEvent[]>([]);
   const [streamOnline, setStreamOnline] = useState(false);
   const [authorizationUrl, setAuthorizationUrl] = useState("");
-  const [view, setView] = useState<View>("requests");
   const [form, setForm] = useState<ConnectionForm>(initialForm);
-  const [showForm, setShowForm] = useState(!connectionId);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [tools, setTools] = useState<McpTool[]>([]);
@@ -188,11 +189,32 @@ export default function App() {
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
-  const setConnectionId = useCallback((value: string) => {
-    setConnectionIdState(value);
-    if (value) localStorage.setItem(CONNECTION_KEY, value);
-    else localStorage.removeItem(CONNECTION_KEY);
-  }, []);
+  const openConnection = useCallback((id: string, options?: { replace?: boolean }) => {
+    navigate({ page: "connection", connectionId: id, view: "requests" }, options);
+  }, [navigate]);
+
+  // "/" has no screen of its own: resume the last connection viewed in this browser, or start a new one.
+  useEffect(() => {
+    if (route.page !== "home") return;
+    const lastConnectionId = localStorage.getItem(CONNECTION_KEY);
+    if (lastConnectionId) openConnection(lastConnectionId, { replace: true });
+    else navigate({ page: "new" }, { replace: true });
+  }, [navigate, openConnection, route.page]);
+
+  useEffect(() => {
+    if (connectionId) localStorage.setItem(CONNECTION_KEY, connectionId);
+  }, [connectionId]);
+
+  // Everything below the sidebar belongs to one connection, so switching connections starts it fresh.
+  useEffect(() => {
+    setStatus((current) => current?.connectionId === connectionId ? current : null);
+    setEvents([]);
+    setTools([]);
+    setToolsError(null);
+    setSelectedTool(null);
+    setToolResult(null);
+    setAuthorizationUrl("");
+  }, [connectionId]);
 
   const refreshConnections = useCallback(async () => {
     try {
@@ -224,9 +246,10 @@ export default function App() {
         if (disposed) return;
         const message = error instanceof Error ? error.message : "Could not load connection";
         if (message.toLowerCase().includes("not found")) {
-          setConnectionId("");
-          setStatus(null);
-          setShowForm(true);
+          // A stale link or a restarted backend: forget the connection and offer a new one.
+          if (localStorage.getItem(CONNECTION_KEY) === connectionId) localStorage.removeItem(CONNECTION_KEY);
+          setNotice(`Connection ${shortId(connectionId)} no longer exists. Connections are cleared when the backend restarts.`);
+          navigate({ page: "new" }, { replace: true });
           void refreshConnections();
         } else {
           setNotice(message);
@@ -240,7 +263,7 @@ export default function App() {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [connectionId, refreshConnections, sessionId, setConnectionId]);
+  }, [connectionId, navigate, refreshConnections, sessionId]);
 
   useEffect(() => {
     if (!connectionId) return;
@@ -345,15 +368,8 @@ export default function App() {
 
   const selectConnection = (id: string) => {
     if (id === connectionId) return;
-    setConnectionId(id);
-    setEvents([]);
-    setTools([]);
-    setToolsError(null);
-    setSelectedTool(null);
-    setToolResult(null);
-    setAuthorizationUrl("");
-    setShowForm(false);
     setNotice(null);
+    openConnection(id);
   };
 
   const createConnection = async (event: FormEvent) => {
@@ -403,17 +419,12 @@ export default function App() {
 
     try {
       const result = await api.createConnection(sessionId, request);
-      setConnectionId(result.connectionId);
       setStatus({
         connectionId: result.connectionId,
         serverUrl: form.serverUrl,
         state: result.state,
       });
-      setEvents([]);
-      setTools([]);
-      setToolsError(null);
-      setAuthorizationUrl("");
-      setShowForm(false);
+      openConnection(result.connectionId);
       await refreshConnections();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not create the connection");
@@ -428,12 +439,8 @@ export default function App() {
     setNotice(null);
     try {
       await api.disconnect(sessionId, connectionId);
-      setConnectionId("");
-      setStatus(null);
-      setTools([]);
-      setToolsError(null);
-      setSelectedTool(null);
-      setShowForm(true);
+      localStorage.removeItem(CONNECTION_KEY);
+      navigate({ page: "new" });
       await refreshConnections();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not close the connection");
@@ -473,6 +480,12 @@ export default function App() {
 
   const connected = status?.state === "connected";
 
+  // Cancelling the form returns to the connection it was opened from, if that still exists.
+  const lastConnectionId = showForm ? localStorage.getItem(CONNECTION_KEY) : null;
+  const returnConnectionId = connections.some((connection) => connection.connectionId === lastConnectionId)
+    ? lastConnectionId
+    : null;
+
   const requestCount = useMemo(
     () => events.filter((event) => event.eventType === "http.request").length,
     [events],
@@ -499,7 +512,7 @@ export default function App() {
           <div className="sidebar-section">
             <div className="sidebar-heading">
               <h2>Connections</h2>
-              <button className={`new-connection ${showForm ? "active" : ""}`} onClick={() => setShowForm(true)}>
+              <button className={`new-connection ${showForm ? "active" : ""}`} onClick={() => navigate({ page: "new" })}>
                 <Plus size={15} /> New
               </button>
             </div>
@@ -510,10 +523,16 @@ export default function App() {
                 // The list is fetched on demand, so prefer the live status for the active connection.
                 const state = connection.connectionId === connectionId && status ? status.state : connection.state;
                 return (
-                  <button
+                  <a
                     key={connection.connectionId}
-                    className={`connection-item ${connection.connectionId === connectionId && !showForm ? "active" : ""}`}
-                    onClick={() => selectConnection(connection.connectionId)}
+                    href={routePath({ page: "connection", connectionId: connection.connectionId, view: "requests" })}
+                    className={`connection-item ${connection.connectionId === connectionId ? "active" : ""}`}
+                    aria-current={connection.connectionId === connectionId ? "page" : undefined}
+                    onClick={(event) => {
+                      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+                      event.preventDefault();
+                      selectConnection(connection.connectionId);
+                    }}
                     title={connection.serverUrl}
                   >
                     <span className={`state-dot ${state}`} />
@@ -521,7 +540,7 @@ export default function App() {
                       <strong>{hostOf(connection.serverUrl)}</strong>
                       <small>{stateLabels[state]}</small>
                     </span>
-                  </button>
+                  </a>
                 );
               })}
             </div>
@@ -551,7 +570,7 @@ export default function App() {
               setForm={setForm}
               submitting={submitting}
               onSubmit={createConnection}
-              onCancel={connectionId ? () => setShowForm(false) : undefined}
+              onCancel={returnConnectionId ? () => openConnection(returnConnectionId) : undefined}
             />
           ) : status ? (
             <div className="connection-view">
@@ -598,10 +617,10 @@ export default function App() {
               )}
 
               <nav className="view-tabs" role="tablist">
-                <button role="tab" aria-selected={view === "requests"} className={view === "requests" ? "active" : ""} onClick={() => setView("requests")}>
+                <button role="tab" aria-selected={view === "requests"} className={view === "requests" ? "active" : ""} onClick={() => navigate({ page: "connection", connectionId, view: "requests" }, { replace: true })}>
                   <ArrowLeftRight size={16} /> Requests <span>{requestCount}</span>
                 </button>
-                <button role="tab" aria-selected={view === "tools"} className={view === "tools" ? "active" : ""} onClick={() => setView("tools")}>
+                <button role="tab" aria-selected={view === "tools"} className={view === "tools" ? "active" : ""} onClick={() => navigate({ page: "connection", connectionId, view: "tools" }, { replace: true })}>
                   <Wrench size={16} /> Tools <span>{tools.length}</span>
                 </button>
               </nav>
@@ -628,12 +647,14 @@ export default function App() {
                 />
               )}
             </div>
+          ) : connectionId ? (
+            <div className="panel-empty tall"><Loader2 className="spin" size={22} /><span>Loading connection…</span></div>
           ) : (
             <div className="empty-state">
               <div className="empty-icon"><CircleOff size={28} /></div>
               <h1>No active connection</h1>
               <p>Connect to an MCP server to see every HTTP request the client makes, step through authorization, and call its tools.</p>
-              <button className="primary-button" onClick={() => setShowForm(true)}><Plus size={16} /> New connection</button>
+              <button className="primary-button" onClick={() => navigate({ page: "new" })}><Plus size={16} /> New connection</button>
             </div>
           )}
         </section>
