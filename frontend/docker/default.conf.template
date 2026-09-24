@@ -18,6 +18,8 @@ server {
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 1h;
+        # Ask proxies in front of this one (e.g. Choreo's edge router) not to buffer either
+        add_header X-Accel-Buffering no always;
     }
 
     location / {
