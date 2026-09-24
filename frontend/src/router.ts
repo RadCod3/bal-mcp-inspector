@@ -6,11 +6,15 @@ export type View = "requests" | "tools";
 export type Route =
   | { page: "home" }
   | { page: "new" }
-  | { page: "connection"; connectionId: string; view: View };
+  | { page: "connection"; connectionId: string; view: View }
+  | { page: "edit"; connectionId: string };
 
 export function parseRoute(pathname: string): Route {
   const segments = pathname.split("/").filter(Boolean).map(decodeURIComponent);
   if (segments[0] === "new" && segments.length === 1) return { page: "new" };
+  if (segments[0] === "connections" && segments[1] && segments[2] === "edit" && segments.length === 3) {
+    return { page: "edit", connectionId: segments[1] };
+  }
   if (segments[0] === "connections" && segments[1] && segments.length <= 3) {
     return { page: "connection", connectionId: segments[1], view: segments[2] === "tools" ? "tools" : "requests" };
   }
@@ -23,6 +27,8 @@ export function routePath(route: Route) {
       return "/new";
     case "connection":
       return `/connections/${encodeURIComponent(route.connectionId)}${route.view === "tools" ? "/tools" : ""}`;
+    case "edit":
+      return `/connections/${encodeURIComponent(route.connectionId)}/edit`;
     default:
       return "/";
   }

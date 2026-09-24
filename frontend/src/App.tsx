@@ -9,6 +9,7 @@ import {
   LockKeyhole,
   Loader2,
   Moon,
+  Pencil,
   Plus,
   Power,
   RefreshCw,
@@ -40,6 +41,7 @@ import type {
 const SESSION_KEY = "balInspector.browserSessionId";
 const CONNECTION_KEY = "balInspector.activeConnectionId";
 const THEME_KEY = "balInspector.theme";
+const SETTINGS_KEY = "balInspector.connectionSettings";
 const MOD_KEY = /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘" : "Ctrl";
 
 type Theme = "light" | "dark";
@@ -109,6 +111,112 @@ function clearedSecrets(form: ConnectionForm): ConnectionForm {
   };
 }
 
+function connectionRequest(form: ConnectionForm): CreateConnectionRequest {
+  const scopes = form.scopes.split(/[\s,]+/).map((scope) => scope.trim()).filter(Boolean);
+  let auth: AuthConfig;
+  if (form.authType === "authorization_code") {
+    auth = {
+      authType: "authorization_code",
+      clientId: form.clientId,
+      issuer: form.issuer,
+      redirectUri: form.redirectUri,
+      clientAuth: {authMethod: form.tokenAuthMethod, clientSecret: form.clientSecret},
+      scopes,
+    };
+  } else if (form.authType === "cimd_authorization_code") {
+    auth = {
+      authType: "cimd_authorization_code",
+      profile: form.cimdProfile,
+      scopes,
+    };
+  } else if (form.authType === "client_credentials") {
+    auth = {
+      authType: "client_credentials",
+      clientId: form.clientId,
+      issuer: form.issuer,
+      clientAuth: {authMethod: form.tokenAuthMethod, clientSecret: form.clientSecret},
+      scopes,
+    };
+  } else if (form.authType === "cimd_client_credentials") {
+    auth = {
+      authType: "cimd_client_credentials",
+      profile: form.cimdProfile === "none" ? "jwks" : form.cimdProfile,
+      scopes,
+    };
+  } else {
+    auth = { authType: "none" };
+  }
+  return { serverUrl: form.serverUrl, protocolMode: form.protocolMode, auth };
+}
+
+// The backend keeps only a connection's URL and state, so the browser remembers the form each one was
+// created from (never the secret) to prefill editing.
+function readAllSettings(): Record<string, ConnectionForm> {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as unknown;
+    return stored && typeof stored === "object" ? stored as Record<string, ConnectionForm> : {};
+  } catch {
+    return {};
+  }
+}
+
+function loadSettings(connectionId: string): ConnectionForm | null {
+  const stored = readAllSettings()[connectionId];
+  return stored ? { ...initialForm, ...stored, clientSecret: "" } : null;
+}
+
+function saveSettings(connectionId: string, form: ConnectionForm) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...readAllSettings(), [connectionId]: clearedSecrets(form) }));
+  } catch {
+    // Editing falls back to defaults when the settings can't be stored.
+  }
+}
+
+function forgetSettings(connectionId: string) {
+  try {
+    const { [connectionId]: _, ...rest } = readAllSettings();
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(rest));
+  } catch {
+    // Nothing to clean up if storage is unavailable.
+  }
+}
+
+const authTypeLabels: Record<AuthType, string> = {
+  none: "No auth",
+  authorization_code: "Auth code",
+  client_credentials: "Client credentials",
+  cimd_authorization_code: "CIMD auth code",
+  cimd_client_credentials: "CIMD credentials",
+};
+
+interface SettingChange {
+  label: string;
+  from: string;
+  to: string;
+}
+
+const settingFields: [string, (form: ConnectionForm) => string, (authType: AuthType) => boolean][] = [
+  ["Server URL", (form) => form.serverUrl, () => true],
+  ["Protocol", (form) => form.protocolMode, () => true],
+  ["Authorization", (form) => authTypeLabels[form.authType], () => true],
+  ["Issuer", (form) => form.issuer, (type) => type === "authorization_code" || type === "client_credentials"],
+  ["Client ID", (form) => form.clientId, (type) => type === "authorization_code" || type === "client_credentials"],
+  ["Redirect URI", (form) => form.redirectUri, (type) => type === "authorization_code"],
+  ["Token endpoint authentication", (form) => form.tokenAuthMethod, (type) => type === "authorization_code" || type === "client_credentials"],
+  ["CIMD profile", (form) => form.cimdProfile, (type) => type === "cimd_authorization_code" || type === "cimd_client_credentials"],
+  ["Scopes", (form) => form.scopes.trim(), (type) => type !== "none"],
+];
+
+// Fields that don't apply to a side's authorization type show as "—" rather than a leftover value.
+function describeChanges(before: ConnectionForm, after: ConnectionForm): SettingChange[] {
+  return settingFields.flatMap(([label, value, appliesTo]) => {
+    const from = appliesTo(before.authType) ? value(before) : "";
+    const to = appliesTo(after.authType) ? value(after) : "";
+    return from === to ? [] : [{ label, from: from || "—", to: to || "—" }];
+  });
+}
+
 const stateLabels: Record<ConnectionState, string> = {
   connecting: "Connecting",
   awaiting_authorization: "Authorization needed",
@@ -167,6 +275,7 @@ export default function App() {
   const connectionId = route.page === "connection" ? route.connectionId : "";
   const view: View = route.page === "connection" ? route.view : "requests";
   const showForm = route.page === "new";
+  const editId = route.page === "edit" ? route.connectionId : "";
   const [connections, setConnections] = useState<ConnectionStatus[]>([]);
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [events, setEvents] = useState<InspectorEvent[]>([]);
@@ -174,6 +283,13 @@ export default function App() {
   const [authorizationUrl, setAuthorizationUrl] = useState("");
   const [form, setForm] = useState<ConnectionForm>(initialForm);
   const [submitting, setSubmitting] = useState(false);
+  // Editing works on its own copy so backing out leaves both the connection and the New form untouched.
+  const [editForm, setEditForm] = useState<ConnectionForm | null>(null);
+  const [editOriginal, setEditOriginal] = useState<ConnectionForm | null>(null);
+  const [confirmingEdit, setConfirmingEdit] = useState(false);
+  const updateEditForm = useCallback<React.Dispatch<React.SetStateAction<ConnectionForm>>>((action) => {
+    setEditForm((current) => current && (typeof action === "function" ? action(current) : action));
+  }, []);
   const [notice, setNotice] = useState<string | null>(null);
   const [tools, setTools] = useState<McpTool[]>([]);
   const [toolsLoading, setToolsLoading] = useState(false);
@@ -230,6 +346,39 @@ export default function App() {
   useEffect(() => {
     void refreshConnections();
   }, [refreshConnections]);
+
+  useEffect(() => {
+    setConfirmingEdit(false);
+    if (!editId) {
+      setEditForm(null);
+      setEditOriginal(null);
+      return;
+    }
+    let disposed = false;
+    api.getConnection(sessionId, editId)
+      .then((connection) => {
+        if (disposed) return;
+        // Connections made before settings were remembered only have a URL to go on.
+        const settings = loadSettings(editId) ?? { ...initialForm, serverUrl: connection.serverUrl };
+        setEditForm(settings);
+        setEditOriginal(settings);
+        // The sidebar has no live status for the connection being edited, so refresh its state.
+        void refreshConnections();
+      })
+      .catch((error) => {
+        if (disposed) return;
+        const message = error instanceof Error ? error.message : "Could not load connection";
+        if (message.toLowerCase().includes("not found")) {
+          forgetSettings(editId);
+          setNotice(`Connection ${shortId(editId)} no longer exists. Connections are cleared when the backend restarts.`);
+          navigate({ page: "new" }, { replace: true });
+          void refreshConnections();
+        } else {
+          setNotice(message);
+        }
+      });
+    return () => { disposed = true; };
+  }, [editId, navigate, refreshConnections, sessionId]);
 
   useEffect(() => {
     if (!connectionId) {
@@ -376,49 +525,9 @@ export default function App() {
     event.preventDefault();
     setSubmitting(true);
     setNotice(null);
-    const scopes = form.scopes.split(/[\s,]+/).map((scope) => scope.trim()).filter(Boolean);
-    let auth: AuthConfig;
-    if (form.authType === "authorization_code") {
-      auth = {
-        authType: "authorization_code",
-        clientId: form.clientId,
-        issuer: form.issuer,
-        redirectUri: form.redirectUri,
-        clientAuth: {authMethod: form.tokenAuthMethod, clientSecret: form.clientSecret},
-        scopes,
-      };
-    } else if (form.authType === "cimd_authorization_code") {
-      auth = {
-        authType: "cimd_authorization_code",
-        profile: form.cimdProfile,
-        scopes,
-      };
-    } else if (form.authType === "client_credentials") {
-      auth = {
-        authType: "client_credentials",
-        clientId: form.clientId,
-        issuer: form.issuer,
-        clientAuth: {authMethod: form.tokenAuthMethod, clientSecret: form.clientSecret},
-        scopes,
-      };
-    } else if (form.authType === "cimd_client_credentials") {
-      auth = {
-        authType: "cimd_client_credentials",
-        profile: form.cimdProfile === "none" ? "jwks" : form.cimdProfile,
-        scopes,
-      };
-    } else {
-      auth = { authType: "none" };
-    }
-
-    const request: CreateConnectionRequest = {
-      serverUrl: form.serverUrl,
-      protocolMode: form.protocolMode,
-      auth,
-    };
-
     try {
-      const result = await api.createConnection(sessionId, request);
+      const result = await api.createConnection(sessionId, connectionRequest(form));
+      saveSettings(result.connectionId, form);
       setStatus({
         connectionId: result.connectionId,
         serverUrl: form.serverUrl,
@@ -434,11 +543,49 @@ export default function App() {
     }
   };
 
+  const cancelEdit = () => {
+    setNotice(null);
+    openConnection(editId);
+  };
+
+  // The backend can't change a live connection, so saving opens a new one and closes the old one only once
+  // the new one exists; a failed save leaves the original connection running.
+  const saveEdit = async () => {
+    if (!editId || !editForm) return;
+    setSubmitting(true);
+    setNotice(null);
+    try {
+      const result = await api.createConnection(sessionId, connectionRequest(editForm));
+      saveSettings(result.connectionId, editForm);
+      try {
+        await api.disconnect(sessionId, editId);
+        forgetSettings(editId);
+      } catch (error) {
+        setNotice(`Reconnected, but the previous connection could not be closed: ${error instanceof Error ? error.message : "unknown error"}`);
+      }
+      setStatus({
+        connectionId: result.connectionId,
+        serverUrl: editForm.serverUrl,
+        state: result.state,
+      });
+      // Replace the edit screen so Back doesn't return to editing a connection that's gone.
+      openConnection(result.connectionId, { replace: true });
+      await refreshConnections();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not reconnect with the new settings");
+    } finally {
+      setEditForm((current) => current && clearedSecrets(current));
+      setConfirmingEdit(false);
+      setSubmitting(false);
+    }
+  };
+
   const disconnect = async () => {
     if (!connectionId) return;
     setNotice(null);
     try {
       await api.disconnect(sessionId, connectionId);
+      forgetSettings(connectionId);
       localStorage.removeItem(CONNECTION_KEY);
       navigate({ page: "new" });
       await refreshConnections();
@@ -479,6 +626,8 @@ export default function App() {
   };
 
   const connected = status?.state === "connected";
+  const activeConnectionId = connectionId || editId;
+  const editedConnection = connections.find((connection) => connection.connectionId === editId);
 
   // Cancelling the form returns to the connection it was opened from, if that still exists.
   const lastConnectionId = showForm ? localStorage.getItem(CONNECTION_KEY) : null;
@@ -526,8 +675,8 @@ export default function App() {
                   <a
                     key={connection.connectionId}
                     href={routePath({ page: "connection", connectionId: connection.connectionId, view: "requests" })}
-                    className={`connection-item ${connection.connectionId === connectionId ? "active" : ""}`}
-                    aria-current={connection.connectionId === connectionId ? "page" : undefined}
+                    className={`connection-item ${connection.connectionId === activeConnectionId ? "active" : ""}`}
+                    aria-current={connection.connectionId === activeConnectionId ? "page" : undefined}
                     onClick={(event) => {
                       if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
                       event.preventDefault();
@@ -572,6 +721,33 @@ export default function App() {
               onSubmit={createConnection}
               onCancel={returnConnectionId ? () => openConnection(returnConnectionId) : undefined}
             />
+          ) : editId ? (
+            editForm && editOriginal ? (
+              <>
+                <ConnectionPanel
+                  mode="edit"
+                  form={editForm}
+                  setForm={updateEditForm}
+                  submitting={submitting}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    setConfirmingEdit(true);
+                  }}
+                  onCancel={cancelEdit}
+                />
+                {confirmingEdit && (
+                  <ConfirmReconnectDialog
+                    serverUrl={editedConnection?.serverUrl ?? editOriginal.serverUrl}
+                    changes={describeChanges(editOriginal, editForm)}
+                    saving={submitting}
+                    onConfirm={saveEdit}
+                    onCancel={() => setConfirmingEdit(false)}
+                  />
+                )}
+              </>
+            ) : (
+              <div className="panel-empty tall"><Loader2 className="spin" size={22} /><span>Loading connection settings…</span></div>
+            )
           ) : status ? (
             <div className="connection-view">
               <section className="connection-header">
@@ -594,9 +770,14 @@ export default function App() {
                     <span className="status-dot" /> {streamOnline ? "Live" : "Reconnecting"}
                   </span>
                 </div>
-                <button className="secondary-button danger" onClick={disconnect}>
-                  <Power size={15} /> Disconnect
-                </button>
+                <div className="connection-actions">
+                  <button className="secondary-button" onClick={() => navigate({ page: "edit", connectionId })}>
+                    <Pencil size={15} /> Edit
+                  </button>
+                  <button className="secondary-button danger" onClick={disconnect}>
+                    <Power size={15} /> Disconnect
+                  </button>
+                </div>
               </section>
 
               {status.errorMessage && (
@@ -664,12 +845,14 @@ export default function App() {
 }
 
 function ConnectionPanel({
+  mode = "new",
   form,
   setForm,
   submitting,
   onSubmit,
   onCancel,
 }: {
+  mode?: "new" | "edit";
   form: ConnectionForm;
   setForm: React.Dispatch<React.SetStateAction<ConnectionForm>>;
   submitting: boolean;
@@ -713,8 +896,17 @@ function ConnectionPanel({
   return (
     <div className="setup-wrap">
       <div className="setup-intro">
-        <h1>Connect to an MCP server</h1>
-        <p>Configure the Ballerina MCP client, then watch every HTTP request it makes and call the server's tools.</p>
+        {mode === "edit" ? (
+          <>
+            <h1>Edit connection</h1>
+            <p>Saving reconnects with these settings. The current connection stays open until the new one is created.</p>
+          </>
+        ) : (
+          <>
+            <h1>Connect to an MCP server</h1>
+            <p>Configure the Ballerina MCP client, then watch every HTTP request it makes and call the server's tools.</p>
+          </>
+        )}
       </div>
 
       <form className="setup-card" onSubmit={onSubmit}>
@@ -842,7 +1034,7 @@ function ConnectionPanel({
                     <option value="client_secret_post">Client secret — request body</option>
                   </select>
                 </label>
-                <label className="field"><span>Client secret</span><input type="password" required value={form.clientSecret} onChange={(e) => update("clientSecret", e.target.value)} placeholder="Not persisted" autoComplete="new-password" /></label>
+                <label className="field"><span>Client secret</span><input type="password" required value={form.clientSecret} onChange={(e) => update("clientSecret", e.target.value)} placeholder={mode === "edit" ? "Re-enter to reconnect, not persisted" : "Not persisted"} autoComplete="new-password" /></label>
               </>
             )}
 
@@ -854,11 +1046,71 @@ function ConnectionPanel({
           {onCancel && <button className="secondary-button" type="button" onClick={onCancel}>Cancel</button>}
           <button className="primary-button" disabled={submitting || (isCimd && !selectedCimdProfile)}>
             {submitting && <Loader2 className="spin" size={16} />}
-            {submitting ? "Connecting" : "Connect"}
+            {mode === "edit" ? "Save changes" : submitting ? "Connecting" : "Connect"}
           </button>
         </div>
       </form>
     </div>
+  );
+}
+
+function ConfirmReconnectDialog({ serverUrl, changes, saving, onConfirm, onCancel }: {
+  serverUrl: string;
+  changes: SettingChange[];
+  saving: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="confirm-dialog"
+      aria-labelledby="confirm-reconnect-title"
+      onCancel={(event) => {
+        // Escape backs out, but not while the reconnect is in flight.
+        event.preventDefault();
+        if (!saving) onCancel();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !saving) onCancel();
+      }}
+    >
+      <div className="confirm-body">
+        <h2 id="confirm-reconnect-title">Reconnect with these settings?</h2>
+        <p>
+          This opens a new connection and then closes the one to <code>{hostOf(serverUrl)}</code>.
+          Its request log and tool results are cleared.
+        </p>
+        {changes.length > 0 ? (
+          <dl className="change-list">
+            {changes.map((change) => (
+              <div key={change.label}>
+                <dt>{change.label}</dt>
+                <dd><span className="change-from">{change.from}</span> <span aria-hidden="true">→</span> <span className="change-to">{change.to}</span></dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="muted">No settings changed. Saving reconnects with the same settings.</p>
+        )}
+        <div className="confirm-actions">
+          <button className="secondary-button" type="button" onClick={onCancel} disabled={saving} autoFocus>
+            Keep editing
+          </button>
+          <button className="primary-button" type="button" onClick={onConfirm} disabled={saving}>
+            {saving && <Loader2 className="spin" size={16} />}
+            {saving ? "Reconnecting" : "Save and reconnect"}
+          </button>
+        </div>
+      </div>
+    </dialog>
   );
 }
 
