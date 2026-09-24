@@ -1,0 +1,8 @@
+{
+  "plugin_id": "mcp-compiler-plugin",
+  "plugin_class": "io.ballerina.stdlib.mcp.plugin.McpCompilerPlugin",
+  "dependency_paths": [
+    "compiler-plugin/libs/mcp-compiler-plugin-2.0.0-SNAPSHOT.jar",
+    "compiler-plugin/libs/ballerina-to-openapi-2.3.0.jar"
+  ]
+}

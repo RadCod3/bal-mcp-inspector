@@ -1,0 +1,41 @@
+{
+  "organization": "ballerina",
+  "name": "mcp",
+  "version": "2.0.0",
+  "licenses": [
+    "Apache-2.0"
+  ],
+  "authors": [
+    "Ballerina"
+  ],
+  "source_repository": "https://github.com/ballerina-platform/module-ballerina-mcp",
+  "keywords": [
+    "mcp",
+    "Type/Connector",
+    "Type/Trigger",
+    "Name/MCP",
+    "Area/AI \u0026 Machine Learning"
+  ],
+  "export": [
+    "mcp"
+  ],
+  "include": [
+    "metadata/**"
+  ],
+  "icon": "docs/icon.png",
+  "ballerina_version": "2201.13.6",
+  "implementation_vendor": "WSO2",
+  "language_spec_version": "2024R1",
+  "platform": "java21",
+  "platformDependencies": [
+    {
+      "path": "platform/java21/mcp-native-2.0.0-SNAPSHOT.jar",
+      "artifactId": "mcp-native",
+      "groupId": "io.ballerina.stdlib.",
+      "version": "2.0.0"
+    }
+  ],
+  "graalvmCompatible": true,
+  "template": false,
+  "readme": "docs/README.md"
+}

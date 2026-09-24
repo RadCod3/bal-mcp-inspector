@@ -1,0 +1,1655 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:36668954-ead5-30be-b42a-6c27470cb34f",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "type": "application",
+      "bom-ref": "pkg:ballerina/ballerina/mcp@2.0.0",
+      "group": "ballerina",
+      "name": "mcp",
+      "version": "2.0.0",
+      "purl": "pkg:ballerina/ballerina/mcp@2.0.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "ballerina:jar/ballerina/file/org.wso2.transport.local-file-system-6.0.55.jar/e2b9a436da5bb777636051c59702c2d8d30513091368aa41a17fa5c4c099383b",
+      "name": "org.wso2.transport.local-file-system-6.0.55.jar",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e2b9a436da5bb777636051c59702c2d8d30513091368aa41a17fa5c4c099383b"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-linux-aarch_64.jar/07b72337b541d59901976b7b59fed2293f2227c549cc814b20402380119a60cb",
+      "name": "netty-tcnative-boringssl-static-2.0.83.Final-linux-aarch_64.jar",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "07b72337b541d59901976b7b59fed2293f2227c549cc814b20402380119a60cb"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-linux-x86_64.jar/8b02842c5661423234d262e7eae6186ab1c7757a9dc2db6ae0f45fa9035aed6a",
+      "name": "netty-tcnative-boringssl-static-2.0.83.Final-linux-x86_64.jar",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8b02842c5661423234d262e7eae6186ab1c7757a9dc2db6ae0f45fa9035aed6a"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-osx-aarch_64.jar/893d26befd16ee2260b5c579f602ee455901ed566fee1cddd1f2e0978a02fdf8",
+      "name": "netty-tcnative-boringssl-static-2.0.83.Final-osx-aarch_64.jar",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "893d26befd16ee2260b5c579f602ee455901ed566fee1cddd1f2e0978a02fdf8"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-osx-x86_64.jar/d6a2291e22ff4a007e55576cf76a2ab2677780c3216137558ceaf36280b4c445",
+      "name": "netty-tcnative-boringssl-static-2.0.83.Final-osx-x86_64.jar",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d6a2291e22ff4a007e55576cf76a2ab2677780c3216137558ceaf36280b4c445"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-windows-x86_64.jar/43f65712b8e3d1cb0eccc0b2669bee19990f2c11dcfe5381bec3738b991b1052",
+      "name": "netty-tcnative-boringssl-static-2.0.83.Final-windows-x86_64.jar",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "43f65712b8e3d1cb0eccc0b2669bee19990f2c11dcfe5381bec3738b991b1052"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "ballerina:jar/ballerina/mcp/compiler-plugin/ballerina-to-openapi-2.3.0.jar",
+      "name": "ballerina-to-openapi-2.3.0.jar",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "71303e07daf67e68505305afa369d6d649cdecbf80a10f7145bb51b5333fac6c"
+        }
+      ],
+      "properties": [
+        {
+          "name": "ballerina:jar:role",
+          "value": "compiler-plugin"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "ballerina:jar/ballerina/mcp/compiler-plugin/mcp-compiler-plugin-2.0.0-SNAPSHOT.jar",
+      "name": "mcp-compiler-plugin-2.0.0-SNAPSHOT.jar",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cfb5eb21672abe9e966f92875172ee714cda514419e1af125f32f13ae35060fd"
+        }
+      ],
+      "properties": [
+        {
+          "name": "ballerina:jar:role",
+          "value": "compiler-plugin"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "ballerina:jar/ballerina/observe/observe-native-1.7.2.jar/869f0cfa4f93a103ca36f21ce8fce2a1bde6b347a17e99e8337c37a81bea2c92",
+      "name": "observe-native-1.7.2.jar",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "869f0cfa4f93a103ca36f21ce8fce2a1bde6b347a17e99e8337c37a81bea2c92"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/auth@2.14.0",
+      "group": "ballerina",
+      "name": "auth",
+      "version": "2.14.0",
+      "purl": "pkg:ballerina/ballerina/auth@2.14.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/cache@3.10.0",
+      "group": "ballerina",
+      "name": "cache",
+      "version": "3.10.0",
+      "purl": "pkg:ballerina/ballerina/cache@3.10.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/constraint@1.7.0",
+      "group": "ballerina",
+      "name": "constraint",
+      "version": "1.7.0",
+      "purl": "pkg:ballerina/ballerina/constraint@1.7.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/crypto@2.12.1",
+      "group": "ballerina",
+      "name": "crypto",
+      "version": "2.12.1",
+      "purl": "pkg:ballerina/ballerina/crypto@2.12.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/data.jsondata@1.1.4",
+      "group": "ballerina",
+      "name": "data.jsondata",
+      "version": "1.1.4",
+      "purl": "pkg:ballerina/ballerina/data.jsondata@1.1.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/file@1.13.1",
+      "group": "ballerina",
+      "name": "file",
+      "version": "1.13.1",
+      "purl": "pkg:ballerina/ballerina/file@1.13.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/http@2.16.7",
+      "group": "ballerina",
+      "name": "http",
+      "version": "2.16.7",
+      "purl": "pkg:ballerina/ballerina/http@2.16.7"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/io@1.8.1",
+      "group": "ballerina",
+      "name": "io",
+      "version": "1.8.1",
+      "purl": "pkg:ballerina/ballerina/io@1.8.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+      "group": "ballerina",
+      "name": "jballerina.java",
+      "version": "0.0.0",
+      "purl": "pkg:ballerina/ballerina/jballerina.java@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/jwt@2.15.1",
+      "group": "ballerina",
+      "name": "jwt",
+      "version": "2.15.1",
+      "purl": "pkg:ballerina/ballerina/jwt@2.15.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/lang.__internal@0.0.0",
+      "group": "ballerina",
+      "name": "lang.__internal",
+      "version": "0.0.0",
+      "purl": "pkg:ballerina/ballerina/lang.__internal@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/lang.array@0.0.0",
+      "group": "ballerina",
+      "name": "lang.array",
+      "version": "0.0.0",
+      "purl": "pkg:ballerina/ballerina/lang.array@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/lang.decimal@0.0.0",
+      "group": "ballerina",
+      "name": "lang.decimal",
+      "version": "0.0.0",
+      "purl": "pkg:ballerina/ballerina/lang.decimal@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/lang.int@0.0.0",
+      "group": "ballerina",
+      "name": "lang.int",
+      "version": "0.0.0",
+      "purl": "pkg:ballerina/ballerina/lang.int@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/lang.object@0.0.0",
+      "group": "ballerina",
+      "name": "lang.object",
+      "version": "0.0.0",
+      "purl": "pkg:ballerina/ballerina/lang.object@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/lang.regexp@0.0.0",
+      "group": "ballerina",
+      "name": "lang.regexp",
+      "version": "0.0.0",
+      "purl": "pkg:ballerina/ballerina/lang.regexp@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/lang.runtime@0.0.0",
+      "group": "ballerina",
+      "name": "lang.runtime",
+      "version": "0.0.0",
+      "purl": "pkg:ballerina/ballerina/lang.runtime@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/lang.string@0.0.0",
+      "group": "ballerina",
+      "name": "lang.string",
+      "version": "0.0.0",
+      "purl": "pkg:ballerina/ballerina/lang.string@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/lang.value@0.0.0",
+      "group": "ballerina",
+      "name": "lang.value",
+      "version": "0.0.0",
+      "purl": "pkg:ballerina/ballerina/lang.value@0.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/log@2.17.0",
+      "group": "ballerina",
+      "name": "log",
+      "version": "2.17.0",
+      "purl": "pkg:ballerina/ballerina/log@2.17.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/mime@2.12.2",
+      "group": "ballerina",
+      "name": "mime",
+      "version": "2.12.2",
+      "purl": "pkg:ballerina/ballerina/mime@2.12.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/oauth2@2.15.0",
+      "group": "ballerina",
+      "name": "oauth2",
+      "version": "2.15.0",
+      "purl": "pkg:ballerina/ballerina/oauth2@2.15.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/observe@1.7.2",
+      "group": "ballerina",
+      "name": "observe",
+      "version": "1.7.2",
+      "purl": "pkg:ballerina/ballerina/observe@1.7.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/os@1.10.1",
+      "group": "ballerina",
+      "name": "os",
+      "version": "1.10.1",
+      "purl": "pkg:ballerina/ballerina/os@1.10.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/task@2.11.2",
+      "group": "ballerina",
+      "name": "task",
+      "version": "2.11.2",
+      "purl": "pkg:ballerina/ballerina/task@2.11.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/time@2.8.1",
+      "group": "ballerina",
+      "name": "time",
+      "version": "2.8.1",
+      "purl": "pkg:ballerina/ballerina/time@2.8.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/url@2.6.2",
+      "group": "ballerina",
+      "name": "url",
+      "version": "2.6.2",
+      "purl": "pkg:ballerina/ballerina/url@2.6.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:ballerina/ballerina/uuid@1.10.0",
+      "group": "ballerina",
+      "name": "uuid",
+      "version": "1.10.0",
+      "purl": "pkg:ballerina/ballerina/uuid@1.10.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/at.yawk.lz4/lz4-java@1.11.1",
+      "group": "at.yawk.lz4",
+      "name": "lz4-java",
+      "version": "1.11.1",
+      "purl": "pkg:maven/at.yawk.lz4/lz4-java@1.11.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e5e31b195fcc7e9c5da4b191af3b0082ee616c13f61cbd79409ffa65e4dd5c47"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/com.google.protobuf/protobuf-java@3.25.5",
+      "group": "com.google.protobuf",
+      "name": "protobuf-java",
+      "version": "3.25.5",
+      "purl": "pkg:maven/com.google.protobuf/protobuf-java@3.25.5",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8540247fad9e06baefa8fb45eb313802d019f485f14300e0f9d6b556ed88e753"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/com.jayway.jsonpath/json-path@2.9.0",
+      "group": "com.jayway.jsonpath",
+      "name": "json-path",
+      "version": "2.9.0",
+      "purl": "pkg:maven/com.jayway.jsonpath/json-path@2.9.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "11a9ee6f88bb31f1450108d1cf6441377dec84aca075eb6bb2343be157575bea"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/commons-pool.wso2/commons-pool@1.5.6.wso2v1",
+      "group": "commons-pool.wso2",
+      "name": "commons-pool",
+      "version": "1.5.6.wso2v1",
+      "purl": "pkg:maven/commons-pool.wso2/commons-pool@1.5.6.wso2v1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "55abc4ca9981fda86138faead7af1d3fe2d6d6e4e8cf62e943f1eb877591142f"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.lib/jsondata-native@1.1.4",
+      "group": "io.ballerina.lib",
+      "name": "jsondata-native",
+      "version": "1.1.4",
+      "purl": "pkg:maven/io.ballerina.lib/jsondata-native@1.1.4",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c2dcc01808ff58b3db3ec47a9643d927217146fd5ec6082c1d507c5cac806628"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib./mcp-native@2.0.0",
+      "group": "io.ballerina.stdlib.",
+      "name": "mcp-native",
+      "version": "2.0.0",
+      "purl": "pkg:maven/io.ballerina.stdlib./mcp-native@2.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a62ebda29a95ab2fb3f93524fe7da30d0fb7e4713157c7e253501bc6310d9778"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/auth-native@2.14.0",
+      "group": "io.ballerina.stdlib",
+      "name": "auth-native",
+      "version": "2.14.0",
+      "purl": "pkg:maven/io.ballerina.stdlib/auth-native@2.14.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8b08801067fe17e434ffd806a4bbc0961373c69193f54acc54de034b8b633f9b"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/cache-native@3.10.0",
+      "group": "io.ballerina.stdlib",
+      "name": "cache-native",
+      "version": "3.10.0",
+      "purl": "pkg:maven/io.ballerina.stdlib/cache-native@3.10.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e5f894b38c9d55dbf83be7026eca4c9f414ae898dea5866b0bc10cfe55f965b6"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/constraint-native@1.7.0",
+      "group": "io.ballerina.stdlib",
+      "name": "constraint-native",
+      "version": "1.7.0",
+      "purl": "pkg:maven/io.ballerina.stdlib/constraint-native@1.7.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "abd88f460a835552d6863bfddb4fd0e3665c36c7f690956e551215fe1b15b9c6"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/crypto-native@2.12.1",
+      "group": "io.ballerina.stdlib",
+      "name": "crypto-native",
+      "version": "2.12.1",
+      "purl": "pkg:maven/io.ballerina.stdlib/crypto-native@2.12.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d4578487f2a501909945580b1176a95abd491e5cefaf4987a1da23983f82977d"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/file-native@1.13.1",
+      "group": "io.ballerina.stdlib",
+      "name": "file-native",
+      "version": "1.13.1",
+      "purl": "pkg:maven/io.ballerina.stdlib/file-native@1.13.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9a6a876acc2c898c07aa7ad6ac0a249b3db18d48dac9bf77b93958f992aab7ed"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/http-native@2.16.7",
+      "group": "io.ballerina.stdlib",
+      "name": "http-native",
+      "version": "2.16.7",
+      "purl": "pkg:maven/io.ballerina.stdlib/http-native@2.16.7",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "832583863878a143a78819cda20b20352dfbb11762a4590d47220cbdf894dc76"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/io-compiler-plugin@1.8.1",
+      "group": "io.ballerina.stdlib",
+      "name": "io-compiler-plugin",
+      "version": "1.8.1",
+      "purl": "pkg:maven/io.ballerina.stdlib/io-compiler-plugin@1.8.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "5d9a40857b07f22b9018fb73f68d04c9b482e9f1f29a0a5c6729f642047fceac"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/io-native@1.8.0",
+      "group": "io.ballerina.stdlib",
+      "name": "io-native",
+      "version": "1.8.0",
+      "purl": "pkg:maven/io.ballerina.stdlib/io-native@1.8.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "25bee4ec8d1e43ac74ef00b25450b825c95f2b168d7c275f88a17706de71373a"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/io-native@1.8.1",
+      "group": "io.ballerina.stdlib",
+      "name": "io-native",
+      "version": "1.8.1",
+      "purl": "pkg:maven/io.ballerina.stdlib/io-native@1.8.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1f9ec2c477ca50dcb3606436070c842c06e54cfe08b1f8ac2e676abf4e5f2310"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/jwt-native@2.15.1",
+      "group": "io.ballerina.stdlib",
+      "name": "jwt-native",
+      "version": "2.15.1",
+      "purl": "pkg:maven/io.ballerina.stdlib/jwt-native@2.15.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ae24e1525dabd4ff1e91c4dba0c4a8c783064a92c75706d95bdd4524dfc09d0d"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/log-compiler-plugin@2.17.0",
+      "group": "io.ballerina.stdlib",
+      "name": "log-compiler-plugin",
+      "version": "2.17.0",
+      "purl": "pkg:maven/io.ballerina.stdlib/log-compiler-plugin@2.17.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7c3f41b9ef3a6b498add110de5c088ab1dedf81c4b5896be350018605dec8444"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/log-native@2.17.0",
+      "group": "io.ballerina.stdlib",
+      "name": "log-native",
+      "version": "2.17.0",
+      "purl": "pkg:maven/io.ballerina.stdlib/log-native@2.17.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "2aa5621d8397e244d6920344c92f141efc0aad0ba04d829ef64431f4ee9934af"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/mime-native@2.12.2",
+      "group": "io.ballerina.stdlib",
+      "name": "mime-native",
+      "version": "2.12.2",
+      "purl": "pkg:maven/io.ballerina.stdlib/mime-native@2.12.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "aa74bf03ee9905cf42cd4fdd5fe85aaacc0875d4eb77b25e7badb84f0da076e4"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/oauth2-native@2.15.0",
+      "group": "io.ballerina.stdlib",
+      "name": "oauth2-native",
+      "version": "2.15.0",
+      "purl": "pkg:maven/io.ballerina.stdlib/oauth2-native@2.15.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9522191676b0c59996f3b6a01771d08c5ca0c517cca6ad15d45ae43d407ab33f"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/os-compiler-plugin@1.10.1",
+      "group": "io.ballerina.stdlib",
+      "name": "os-compiler-plugin",
+      "version": "1.10.1",
+      "purl": "pkg:maven/io.ballerina.stdlib/os-compiler-plugin@1.10.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6fa5c31c9d2d59ba48202051d9a39093b58a4eef610c76d6e1799d2248a4b04c"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/os-native@1.10.1",
+      "group": "io.ballerina.stdlib",
+      "name": "os-native",
+      "version": "1.10.1",
+      "purl": "pkg:maven/io.ballerina.stdlib/os-native@1.10.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "5d894e9f065bb65ab8725abf4aff6113c38bbef05e0da3377e407977e7817822"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/os-test-utils@1.10.1",
+      "group": "io.ballerina.stdlib",
+      "name": "os-test-utils",
+      "version": "1.10.1",
+      "purl": "pkg:maven/io.ballerina.stdlib/os-test-utils@1.10.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "82887cb0f69b61ddedfc3fa446faf823c4966a17b8e7fa447ca6d2aa668d34ae"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/task-native@2.11.2",
+      "group": "io.ballerina.stdlib",
+      "name": "task-native",
+      "version": "2.11.2",
+      "purl": "pkg:maven/io.ballerina.stdlib/task-native@2.11.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "2b4ec67500c678fb357176fcc6466bfad9baa1eff5988cb63d0ae053433c0295"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/time-native@2.8.1",
+      "group": "io.ballerina.stdlib",
+      "name": "time-native",
+      "version": "2.8.1",
+      "purl": "pkg:maven/io.ballerina.stdlib/time-native@2.8.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "84d612e02a49ffd6d1ab5d7d070a0552a8d277f2f553333556afb58128bd2886"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.ballerina.stdlib/url-native@2.6.2",
+      "group": "io.ballerina.stdlib",
+      "name": "url-native",
+      "version": "2.6.2",
+      "purl": "pkg:maven/io.ballerina.stdlib/url-native@2.6.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6dc766a72a0810b529f9e271603474883aaf8059cf6527349d0b07cd0d95285b"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.netty/netty-buffer@4.1.137.Final",
+      "group": "io.netty",
+      "name": "netty-buffer",
+      "version": "4.1.137.Final",
+      "purl": "pkg:maven/io.netty/netty-buffer@4.1.137.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f474b14c7734f15e0540394cb6f39d67777b7581a42919e4ac89d253d4efd929"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.netty/netty-codec-http2@4.1.137.Final",
+      "group": "io.netty",
+      "name": "netty-codec-http2",
+      "version": "4.1.137.Final",
+      "purl": "pkg:maven/io.netty/netty-codec-http2@4.1.137.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "576ddcfb51b78e86f145c9a52b60e500b1a1d5a257cafec8aa5416ffba044b49"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.netty/netty-codec-http@4.1.137.Final",
+      "group": "io.netty",
+      "name": "netty-codec-http",
+      "version": "4.1.137.Final",
+      "purl": "pkg:maven/io.netty/netty-codec-http@4.1.137.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0535bb5a736472bef5c948d15eb273c4ab9f796656fc7c5d6b982ad92bddbd49"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.netty/netty-codec-socks@4.1.137.Final",
+      "group": "io.netty",
+      "name": "netty-codec-socks",
+      "version": "4.1.137.Final",
+      "purl": "pkg:maven/io.netty/netty-codec-socks@4.1.137.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4a6190e08988c058bfeef2b5965e71946439c771abf721c68f4039b4e7b023e8"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.netty/netty-codec@4.1.137.Final",
+      "group": "io.netty",
+      "name": "netty-codec",
+      "version": "4.1.137.Final",
+      "purl": "pkg:maven/io.netty/netty-codec@4.1.137.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9987b6a660b0a6b1f0d791485dae33180b3d1c63687c006fe6d3fd025e9e3798"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.netty/netty-common@4.1.137.Final",
+      "group": "io.netty",
+      "name": "netty-common",
+      "version": "4.1.137.Final",
+      "purl": "pkg:maven/io.netty/netty-common@4.1.137.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d31926b01adcc07af86f5e27b81b6d6c115df17d366e835d1fc3f5a1924e7e52"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.netty/netty-handler-proxy@4.1.137.Final",
+      "group": "io.netty",
+      "name": "netty-handler-proxy",
+      "version": "4.1.137.Final",
+      "purl": "pkg:maven/io.netty/netty-handler-proxy@4.1.137.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "843de10c4cef34cbc1a5344090f1b57db532fbebf141559862da675f6b656df4"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.netty/netty-handler@4.1.137.Final",
+      "group": "io.netty",
+      "name": "netty-handler",
+      "version": "4.1.137.Final",
+      "purl": "pkg:maven/io.netty/netty-handler@4.1.137.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d0e4c6ee4779f59f6ab2fb5d388e4f57147c82270164b37945764bb9bda96a44"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.netty/netty-resolver@4.1.137.Final",
+      "group": "io.netty",
+      "name": "netty-resolver",
+      "version": "4.1.137.Final",
+      "purl": "pkg:maven/io.netty/netty-resolver@4.1.137.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b4cf2aeedd9fc7c8c439bbfe574f63cfe5b83392e88bbc07ca0e8424b7cff955"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.netty/netty-tcnative-boringssl-static@2.0.83.Final",
+      "group": "io.netty",
+      "name": "netty-tcnative-boringssl-static",
+      "version": "2.0.83.Final",
+      "purl": "pkg:maven/io.netty/netty-tcnative-boringssl-static@2.0.83.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "fc7e49ece6cc95dbd574ad41b2ae01d7f2aec8cd9879e1106d2d577ab2533fbf"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.netty/netty-tcnative-classes@2.0.83.Final",
+      "group": "io.netty",
+      "name": "netty-tcnative-classes",
+      "version": "2.0.83.Final",
+      "purl": "pkg:maven/io.netty/netty-tcnative-classes@2.0.83.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "be5966b9e597356bacf7e0daf90a7cef9a3dafd229c7cc71e9c58e4dc13da271"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.netty/netty-transport-native-unix-common@4.1.137.Final",
+      "group": "io.netty",
+      "name": "netty-transport-native-unix-common",
+      "version": "4.1.137.Final",
+      "purl": "pkg:maven/io.netty/netty-transport-native-unix-common@4.1.137.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8056e7637f9948f953314894cf995ab664711b66c73c4cd5b593ae84f0b1048c"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.netty/netty-transport@4.1.137.Final",
+      "group": "io.netty",
+      "name": "netty-transport",
+      "version": "4.1.137.Final",
+      "purl": "pkg:maven/io.netty/netty-transport@4.1.137.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6251adc2a2921572382732a2db188d4f4f2251fd6ebb49c5d44bbf33d6bfb1a7"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.opentelemetry.semconv/opentelemetry-semconv@1.21.0-alpha",
+      "group": "io.opentelemetry.semconv",
+      "name": "opentelemetry-semconv",
+      "version": "1.21.0-alpha",
+      "purl": "pkg:maven/io.opentelemetry.semconv/opentelemetry-semconv@1.21.0-alpha",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f10a7ea465998c0efea87307944fd23b2f7415eace50671e140968f485f8bdfc"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.opentelemetry/opentelemetry-sdk-common@1.32.0",
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-sdk-common",
+      "version": "1.32.0",
+      "purl": "pkg:maven/io.opentelemetry/opentelemetry-sdk-common@1.32.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c7575c999d511c4b43ca2966ffbb123dc1c7581d828bb7487062cacef40c20b2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.opentelemetry/opentelemetry-sdk-testing@1.32.0",
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-sdk-testing",
+      "version": "1.32.0",
+      "purl": "pkg:maven/io.opentelemetry/opentelemetry-sdk-testing@1.32.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e0f8a0a84d2e3df6f0f0475a0a9982575db87fe7b25b2620f888a554a49246b3"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/io.opentelemetry/opentelemetry-sdk-trace@1.32.0",
+      "group": "io.opentelemetry",
+      "name": "opentelemetry-sdk-trace",
+      "version": "1.32.0",
+      "purl": "pkg:maven/io.opentelemetry/opentelemetry-sdk-trace@1.32.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "67742b59070abc018b2204756ab3df73f1736e87771d43af7240120850c7e6ce"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/jakarta.activation/jakarta.activation-api@2.0.1",
+      "group": "jakarta.activation",
+      "name": "jakarta.activation-api",
+      "version": "2.0.1",
+      "purl": "pkg:maven/jakarta.activation/jakarta.activation-api@2.0.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "118e66670e3b0baaad3c98cfec8147f6961e0665dde940d605020f2290e461c3"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/net.minidev.json/accessors-smart@2.4.7",
+      "group": "net.minidev.json",
+      "name": "accessors-smart",
+      "version": "2.4.7",
+      "purl": "pkg:maven/net.minidev.json/accessors-smart@2.4.7",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ef5103429f101f7e3ff62f3a182342720439eaea43d2eed3119bba770bb202a9"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/net.minidev.json/json-smart@2.4.11",
+      "group": "net.minidev.json",
+      "name": "json-smart",
+      "version": "2.4.11",
+      "purl": "pkg:maven/net.minidev.json/json-smart@2.4.11",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f2ffb40160d85a246b4a4337edcaf812db2811af075f2de9e285f0be998a2ee0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.bouncycastle/bcpg-jdk18on@1.84",
+      "group": "org.bouncycastle",
+      "name": "bcpg-jdk18on",
+      "version": "1.84",
+      "purl": "pkg:maven/org.bouncycastle/bcpg-jdk18on@1.84",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c0e6303a0d7589040f400950ecee87a14b81312e84ed15e5390ebb0c4566ddab"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.bouncycastle/bcpkix-jdk18on@1.84",
+      "group": "org.bouncycastle",
+      "name": "bcpkix-jdk18on",
+      "version": "1.84",
+      "purl": "pkg:maven/org.bouncycastle/bcpkix-jdk18on@1.84",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c87f16ed9e5ec61bc94151e9f3646ac44e50cd448121ce84367fa4b7ec7ec1bb"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.84",
+      "group": "org.bouncycastle",
+      "name": "bcprov-jdk18on",
+      "version": "1.84",
+      "purl": "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.84",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "64d6c5a6121fcd927152dd182cbed39afe0fda641a970d9bcc0c9cb1858b2731"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.bouncycastle/bcutil-jdk18on@1.84",
+      "group": "org.bouncycastle",
+      "name": "bcutil-jdk18on",
+      "version": "1.84",
+      "purl": "pkg:maven/org.bouncycastle/bcutil-jdk18on@1.84",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b374e16963421fb9cfb01cc20d7ad8fd2f8b8188e3eef0ec0a8965e245f7619a"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.jboss.marshalling/jboss-marshalling@2.0.5.Final",
+      "group": "org.jboss.marshalling",
+      "name": "jboss-marshalling",
+      "version": "2.0.5.Final",
+      "purl": "pkg:maven/org.jboss.marshalling/jboss-marshalling@2.0.5.Final",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cb64060648b804b70e4a76e0253eab62aa2be115509445c33aaedc0e01296520"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.jvnet.mimepull/mimepull@1.9.11",
+      "group": "org.jvnet.mimepull",
+      "name": "mimepull",
+      "version": "1.9.11",
+      "purl": "pkg:maven/org.jvnet.mimepull/mimepull@1.9.11",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "58a29baedb4d7affdcc35624f3fd0674b6de3fbb188afb8515ae1b52ffedaf69"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.quartz-scheduler/quartz@2.3.2",
+      "group": "org.quartz-scheduler",
+      "name": "quartz",
+      "version": "2.3.2",
+      "purl": "pkg:maven/org.quartz-scheduler/quartz@2.3.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "639c6a675bc472e1568df9d8c954ff702da6f83ed27da0ff9a7bd12ed73b8bf0"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "ballerina:jar/ballerina/file/org.wso2.transport.local-file-system-6.0.55.jar/e2b9a436da5bb777636051c59702c2d8d30513091368aa41a17fa5c4c099383b",
+      "dependsOn": []
+    },
+    {
+      "ref": "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-linux-aarch_64.jar/07b72337b541d59901976b7b59fed2293f2227c549cc814b20402380119a60cb",
+      "dependsOn": []
+    },
+    {
+      "ref": "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-linux-x86_64.jar/8b02842c5661423234d262e7eae6186ab1c7757a9dc2db6ae0f45fa9035aed6a",
+      "dependsOn": []
+    },
+    {
+      "ref": "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-osx-aarch_64.jar/893d26befd16ee2260b5c579f602ee455901ed566fee1cddd1f2e0978a02fdf8",
+      "dependsOn": []
+    },
+    {
+      "ref": "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-osx-x86_64.jar/d6a2291e22ff4a007e55576cf76a2ab2677780c3216137558ceaf36280b4c445",
+      "dependsOn": []
+    },
+    {
+      "ref": "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-windows-x86_64.jar/43f65712b8e3d1cb0eccc0b2669bee19990f2c11dcfe5381bec3738b991b1052",
+      "dependsOn": []
+    },
+    {
+      "ref": "ballerina:jar/ballerina/mcp/compiler-plugin/ballerina-to-openapi-2.3.0.jar",
+      "dependsOn": []
+    },
+    {
+      "ref": "ballerina:jar/ballerina/mcp/compiler-plugin/mcp-compiler-plugin-2.0.0-SNAPSHOT.jar",
+      "dependsOn": []
+    },
+    {
+      "ref": "ballerina:jar/ballerina/observe/observe-native-1.7.2.jar/869f0cfa4f93a103ca36f21ce8fce2a1bde6b347a17e99e8337c37a81bea2c92",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/auth@2.14.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/crypto@2.12.1",
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/lang.array@0.0.0",
+        "pkg:ballerina/ballerina/lang.string@0.0.0",
+        "pkg:ballerina/ballerina/log@2.17.0",
+        "pkg:maven/io.ballerina.stdlib/auth-native@2.14.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/cache@3.10.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/constraint@1.7.0",
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/task@2.11.2",
+        "pkg:ballerina/ballerina/time@2.8.1",
+        "pkg:maven/io.ballerina.stdlib/cache-native@3.10.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/constraint@1.7.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:maven/io.ballerina.stdlib/constraint-native@1.7.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/crypto@2.12.1",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/time@2.8.1",
+        "pkg:maven/io.ballerina.stdlib/crypto-native@2.12.1",
+        "pkg:maven/org.bouncycastle/bcpg-jdk18on@1.84",
+        "pkg:maven/org.bouncycastle/bcpkix-jdk18on@1.84",
+        "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.84",
+        "pkg:maven/org.bouncycastle/bcutil-jdk18on@1.84"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/data.jsondata@1.1.4",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/lang.object@0.0.0",
+        "pkg:maven/com.jayway.jsonpath/json-path@2.9.0",
+        "pkg:maven/io.ballerina.lib/jsondata-native@1.1.4",
+        "pkg:maven/io.ballerina.stdlib/constraint-native@1.7.0",
+        "pkg:maven/net.minidev.json/accessors-smart@2.4.7",
+        "pkg:maven/net.minidev.json/json-smart@2.4.11"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/file@1.13.1",
+      "dependsOn": [
+        "ballerina:jar/ballerina/file/org.wso2.transport.local-file-system-6.0.55.jar/e2b9a436da5bb777636051c59702c2d8d30513091368aa41a17fa5c4c099383b",
+        "pkg:ballerina/ballerina/io@1.8.1",
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/os@1.10.1",
+        "pkg:ballerina/ballerina/time@2.8.1",
+        "pkg:maven/io.ballerina.stdlib/file-native@1.13.1"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/http@2.16.7",
+      "dependsOn": [
+        "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-linux-aarch_64.jar/07b72337b541d59901976b7b59fed2293f2227c549cc814b20402380119a60cb",
+        "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-linux-x86_64.jar/8b02842c5661423234d262e7eae6186ab1c7757a9dc2db6ae0f45fa9035aed6a",
+        "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-osx-aarch_64.jar/893d26befd16ee2260b5c579f602ee455901ed566fee1cddd1f2e0978a02fdf8",
+        "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-osx-x86_64.jar/d6a2291e22ff4a007e55576cf76a2ab2677780c3216137558ceaf36280b4c445",
+        "ballerina:jar/ballerina/http/netty-tcnative-boringssl-static-2.0.83.Final-windows-x86_64.jar/43f65712b8e3d1cb0eccc0b2669bee19990f2c11dcfe5381bec3738b991b1052",
+        "pkg:ballerina/ballerina/auth@2.14.0",
+        "pkg:ballerina/ballerina/cache@3.10.0",
+        "pkg:ballerina/ballerina/constraint@1.7.0",
+        "pkg:ballerina/ballerina/crypto@2.12.1",
+        "pkg:ballerina/ballerina/data.jsondata@1.1.4",
+        "pkg:ballerina/ballerina/file@1.13.1",
+        "pkg:ballerina/ballerina/io@1.8.1",
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/jwt@2.15.1",
+        "pkg:ballerina/ballerina/lang.array@0.0.0",
+        "pkg:ballerina/ballerina/lang.decimal@0.0.0",
+        "pkg:ballerina/ballerina/lang.int@0.0.0",
+        "pkg:ballerina/ballerina/lang.regexp@0.0.0",
+        "pkg:ballerina/ballerina/lang.runtime@0.0.0",
+        "pkg:ballerina/ballerina/lang.string@0.0.0",
+        "pkg:ballerina/ballerina/lang.value@0.0.0",
+        "pkg:ballerina/ballerina/log@2.17.0",
+        "pkg:ballerina/ballerina/mime@2.12.2",
+        "pkg:ballerina/ballerina/oauth2@2.15.0",
+        "pkg:ballerina/ballerina/observe@1.7.2",
+        "pkg:ballerina/ballerina/time@2.8.1",
+        "pkg:ballerina/ballerina/url@2.6.2",
+        "pkg:maven/at.yawk.lz4/lz4-java@1.11.1",
+        "pkg:maven/com.google.protobuf/protobuf-java@3.25.5",
+        "pkg:maven/commons-pool.wso2/commons-pool@1.5.6.wso2v1",
+        "pkg:maven/io.ballerina.stdlib/constraint-native@1.7.0",
+        "pkg:maven/io.ballerina.stdlib/http-native@2.16.7",
+        "pkg:maven/io.ballerina.stdlib/mime-native@2.12.2",
+        "pkg:maven/io.netty/netty-buffer@4.1.137.Final",
+        "pkg:maven/io.netty/netty-codec-http2@4.1.137.Final",
+        "pkg:maven/io.netty/netty-codec-http@4.1.137.Final",
+        "pkg:maven/io.netty/netty-codec-socks@4.1.137.Final",
+        "pkg:maven/io.netty/netty-codec@4.1.137.Final",
+        "pkg:maven/io.netty/netty-common@4.1.137.Final",
+        "pkg:maven/io.netty/netty-handler-proxy@4.1.137.Final",
+        "pkg:maven/io.netty/netty-handler@4.1.137.Final",
+        "pkg:maven/io.netty/netty-resolver@4.1.137.Final",
+        "pkg:maven/io.netty/netty-tcnative-boringssl-static@2.0.83.Final",
+        "pkg:maven/io.netty/netty-tcnative-classes@2.0.83.Final",
+        "pkg:maven/io.netty/netty-transport-native-unix-common@4.1.137.Final",
+        "pkg:maven/io.netty/netty-transport@4.1.137.Final",
+        "pkg:maven/org.bouncycastle/bcpkix-jdk18on@1.84",
+        "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.84",
+        "pkg:maven/org.bouncycastle/bcutil-jdk18on@1.84",
+        "pkg:maven/org.jboss.marshalling/jboss-marshalling@2.0.5.Final",
+        "pkg:maven/org.jvnet.mimepull/mimepull@1.9.11"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/io@1.8.1",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/lang.value@0.0.0",
+        "pkg:maven/io.ballerina.stdlib/io-compiler-plugin@1.8.1",
+        "pkg:maven/io.ballerina.stdlib/io-native@1.8.1"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/jwt@2.15.1",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/cache@3.10.0",
+        "pkg:ballerina/ballerina/crypto@2.12.1",
+        "pkg:ballerina/ballerina/io@1.8.1",
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/lang.int@0.0.0",
+        "pkg:ballerina/ballerina/lang.string@0.0.0",
+        "pkg:ballerina/ballerina/log@2.17.0",
+        "pkg:ballerina/ballerina/time@2.8.1",
+        "pkg:maven/io.ballerina.stdlib/jwt-native@2.15.1"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/lang.__internal@0.0.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/lang.object@0.0.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/lang.array@0.0.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/lang.__internal@0.0.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/lang.decimal@0.0.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/lang.int@0.0.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/lang.__internal@0.0.0",
+        "pkg:ballerina/ballerina/lang.object@0.0.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/lang.object@0.0.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/lang.regexp@0.0.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/lang.runtime@0.0.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/lang.string@0.0.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/lang.regexp@0.0.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/lang.value@0.0.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/log@2.17.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/io@1.8.1",
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/lang.value@0.0.0",
+        "pkg:ballerina/ballerina/observe@1.7.2",
+        "pkg:maven/io.ballerina.stdlib/log-compiler-plugin@2.17.0",
+        "pkg:maven/io.ballerina.stdlib/log-native@2.17.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/mcp@2.0.0",
+      "dependsOn": [
+        "ballerina:jar/ballerina/mcp/compiler-plugin/ballerina-to-openapi-2.3.0.jar",
+        "ballerina:jar/ballerina/mcp/compiler-plugin/mcp-compiler-plugin-2.0.0-SNAPSHOT.jar",
+        "pkg:ballerina/ballerina/crypto@2.12.1",
+        "pkg:ballerina/ballerina/http@2.16.7",
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/jwt@2.15.1",
+        "pkg:ballerina/ballerina/lang.regexp@0.0.0",
+        "pkg:ballerina/ballerina/log@2.17.0",
+        "pkg:ballerina/ballerina/time@2.8.1",
+        "pkg:ballerina/ballerina/url@2.6.2",
+        "pkg:ballerina/ballerina/uuid@1.10.0",
+        "pkg:maven/io.ballerina.stdlib./mcp-native@2.0.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/mime@2.12.2",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/io@1.8.1",
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/lang.int@0.0.0",
+        "pkg:ballerina/ballerina/log@2.17.0",
+        "pkg:maven/io.ballerina.stdlib/mime-native@2.12.2",
+        "pkg:maven/jakarta.activation/jakarta.activation-api@2.0.1",
+        "pkg:maven/org.jvnet.mimepull/mimepull@1.9.11"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/oauth2@2.15.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/cache@3.10.0",
+        "pkg:ballerina/ballerina/crypto@2.12.1",
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/log@2.17.0",
+        "pkg:ballerina/ballerina/time@2.8.1",
+        "pkg:ballerina/ballerina/url@2.6.2",
+        "pkg:maven/io.ballerina.stdlib/oauth2-native@2.15.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/observe@1.7.2",
+      "dependsOn": [
+        "ballerina:jar/ballerina/observe/observe-native-1.7.2.jar/869f0cfa4f93a103ca36f21ce8fce2a1bde6b347a17e99e8337c37a81bea2c92",
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:maven/io.opentelemetry.semconv/opentelemetry-semconv@1.21.0-alpha",
+        "pkg:maven/io.opentelemetry/opentelemetry-sdk-common@1.32.0",
+        "pkg:maven/io.opentelemetry/opentelemetry-sdk-testing@1.32.0",
+        "pkg:maven/io.opentelemetry/opentelemetry-sdk-trace@1.32.0"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/os@1.10.1",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/io@1.8.1",
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:maven/io.ballerina.stdlib/io-native@1.8.0",
+        "pkg:maven/io.ballerina.stdlib/os-compiler-plugin@1.10.1",
+        "pkg:maven/io.ballerina.stdlib/os-native@1.10.1",
+        "pkg:maven/io.ballerina.stdlib/os-test-utils@1.10.1"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/task@2.11.2",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/time@2.8.1",
+        "pkg:ballerina/ballerina/uuid@1.10.0",
+        "pkg:maven/io.ballerina.stdlib/task-native@2.11.2",
+        "pkg:maven/org.quartz-scheduler/quartz@2.3.2"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/time@2.8.1",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:maven/io.ballerina.stdlib/time-native@2.8.1"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/url@2.6.2",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:maven/io.ballerina.stdlib/url-native@2.6.2"
+      ]
+    },
+    {
+      "ref": "pkg:ballerina/ballerina/uuid@1.10.0",
+      "dependsOn": [
+        "pkg:ballerina/ballerina/crypto@2.12.1",
+        "pkg:ballerina/ballerina/jballerina.java@0.0.0",
+        "pkg:ballerina/ballerina/lang.int@0.0.0",
+        "pkg:ballerina/ballerina/time@2.8.1"
+      ]
+    },
+    {
+      "ref": "pkg:maven/at.yawk.lz4/lz4-java@1.11.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/com.google.protobuf/protobuf-java@3.25.5",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/com.jayway.jsonpath/json-path@2.9.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/commons-pool.wso2/commons-pool@1.5.6.wso2v1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.lib/jsondata-native@1.1.4",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib./mcp-native@2.0.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/auth-native@2.14.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/cache-native@3.10.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/constraint-native@1.7.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/crypto-native@2.12.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/file-native@1.13.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/http-native@2.16.7",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/io-compiler-plugin@1.8.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/io-native@1.8.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/io-native@1.8.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/jwt-native@2.15.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/log-compiler-plugin@2.17.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/log-native@2.17.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/mime-native@2.12.2",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/oauth2-native@2.15.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/os-compiler-plugin@1.10.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/os-native@1.10.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/os-test-utils@1.10.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/task-native@2.11.2",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/time-native@2.8.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.ballerina.stdlib/url-native@2.6.2",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.netty/netty-buffer@4.1.137.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.netty/netty-codec-http2@4.1.137.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.netty/netty-codec-http@4.1.137.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.netty/netty-codec-socks@4.1.137.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.netty/netty-codec@4.1.137.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.netty/netty-common@4.1.137.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.netty/netty-handler-proxy@4.1.137.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.netty/netty-handler@4.1.137.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.netty/netty-resolver@4.1.137.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.netty/netty-tcnative-boringssl-static@2.0.83.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.netty/netty-tcnative-classes@2.0.83.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.netty/netty-transport-native-unix-common@4.1.137.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.netty/netty-transport@4.1.137.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.opentelemetry.semconv/opentelemetry-semconv@1.21.0-alpha",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.opentelemetry/opentelemetry-sdk-common@1.32.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.opentelemetry/opentelemetry-sdk-testing@1.32.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/io.opentelemetry/opentelemetry-sdk-trace@1.32.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/jakarta.activation/jakarta.activation-api@2.0.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/net.minidev.json/accessors-smart@2.4.7",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/net.minidev.json/json-smart@2.4.11",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/org.bouncycastle/bcpg-jdk18on@1.84",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/org.bouncycastle/bcpkix-jdk18on@1.84",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.84",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/org.bouncycastle/bcutil-jdk18on@1.84",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/org.jboss.marshalling/jboss-marshalling@2.0.5.Final",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/org.jvnet.mimepull/mimepull@1.9.11",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:maven/org.quartz-scheduler/quartz@2.3.2",
+      "dependsOn": []
+    }
+  ]
+}

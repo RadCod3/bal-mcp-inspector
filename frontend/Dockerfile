@@ -7,13 +7,14 @@ COPY . .
 RUN npm run build
 
 # Serve the bundle and proxy API calls to the backend
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.30-alpine
 # Base URL of the inspector backend, e.g. http://backend:8080 or https://inspector-api.example.com
 ENV BACKEND_URL=http://localhost:8080
 # Render the config into /tmp so the container works with a read-only root filesystem
 ENV NGINX_ENVSUBST_OUTPUT_DIR=/tmp
 USER root
-RUN rm /etc/nginx/conf.d/default.conf \
+RUN apk upgrade --no-cache \
+    && rm /etc/nginx/conf.d/default.conf \
     && sed -i 's|include /etc/nginx/conf.d/\*.conf;|include /tmp/default.conf;|' /etc/nginx/nginx.conf
 COPY docker/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
