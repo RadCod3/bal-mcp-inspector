@@ -10,6 +10,10 @@ service /api/v1 on inspectorListener {
         return {status: "ok"};
     }
 
+    resource isolated function get cimd/profiles() returns CimdProfileInfo[] {
+        return listCimdProfiles();
+    }
+
     resource isolated function get sessions/[string browserSessionId]/connections()
             returns ConnectionStatus[]|http:BadRequest {
         if !validBrowserSessionId(browserSessionId) {
@@ -132,10 +136,40 @@ service /api/v1 on inspectorListener {
     }
 }
 
+service /cimd on inspectorListener {
+    resource isolated function get clients/jwks() returns json|http:InternalServerError {
+        return cimdDocumentResponse("jwks");
+    }
+
+    resource isolated function get clients/jwksUri() returns json|http:InternalServerError {
+        return cimdDocumentResponse("jwks_uri");
+    }
+
+    resource isolated function get clients/none() returns json|http:InternalServerError {
+        return cimdDocumentResponse("none");
+    }
+
+    resource isolated function get jwks() returns json|http:InternalServerError {
+        json|error result = loadCimdJwks();
+        if result is error {
+            return <http:InternalServerError>{body: <ApiError>{message: result.message()}};
+        }
+        return result;
+    }
+}
+
 service /callback on inspectorListener {
     resource isolated function get .(http:Request request) returns string|http:BadRequest {
         return completeOAuthCallback(request);
     }
+}
+
+isolated function cimdDocumentResponse(CimdProfile profile) returns json|http:InternalServerError {
+    json|error result = buildCimdDocument(profile);
+    if result is error {
+        return <http:InternalServerError>{body: <ApiError>{message: result.message()}};
+    }
+    return result;
 }
 
 isolated function restoreConnectedState(ConnectionSession session) {

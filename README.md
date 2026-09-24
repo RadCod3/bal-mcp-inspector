@@ -39,22 +39,32 @@ For pre-registered authorization-code OAuth, register this callback URL with the
 http://localhost:8080/api/v1/oauth/callback
 ```
 
-Public CIMD clients use the metadata document's registered callback. The default CIMD document uses:
+Public CIMD clients use the metadata document's registered callback. The default backend configuration uses:
 
 ```text
 http://localhost:8080/callback
 ```
 
-The inspector exposes the complete OAuth client matrix supported by the module:
+The inspector exposes three backend-managed CIMD clients. Generate their shared RSA signing material once:
+
+```powershell
+cd backend
+node scripts/generate-cimd-keys.mjs
+```
+
+Copy `Config.example.toml` to `Config.toml` and set `cimdPublicBaseUrl` to the public HTTPS origin of the deployed backend. The backend itself hosts all three metadata documents, the public JWKS, and the OAuth callback. By default the callback is `<cimdPublicBaseUrl>/callback`; `cimdRedirectUri` can override it when necessary. Authorization servers must be able to fetch the selected metadata document and, for the `jwks_uri` profile, its JWKS endpoint. `Config.toml` and `backend/secrets/` are ignored by Git.
+
+The inspector offers this OAuth client matrix:
 
 | Client registration | Grant | Token authentication |
 | --- | --- | --- |
-| Pre-registered | Authorization code | None, `client_secret_basic`, `client_secret_post`, or `private_key_jwt` |
-| Pre-registered | Client credentials | `client_secret_basic`, `client_secret_post`, or `private_key_jwt` |
-| CIMD | Authorization code | None or `private_key_jwt` |
-| CIMD | Client credentials | `private_key_jwt` |
+| Pre-registered | Authorization code | `client_secret_basic` or `client_secret_post` |
+| Pre-registered | Client credentials | `client_secret_basic` or `client_secret_post` |
+| CIMD with inline `jwks` | Authorization code or client credentials | `private_key_jwt` |
+| CIMD with `jwks_uri` | Authorization code or client credentials | `private_key_jwt` |
+| CIMD public client | Authorization code | `none` |
 
-Private-key JWT supports RSA `RS256`, `RS384`, and `RS512` signing with either a private-key file or a key store. Key paths are resolved on the backend host.
+The browser chooses only a CIMD profile. The RS256 private key remains on the backend; metadata endpoints expose only the matching public JWK.
 
 ## Session behavior
 

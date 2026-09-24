@@ -25,33 +25,23 @@ export interface CreateConnectionResponse {
 
 export type ProtocolMode = "auto" | "modern" | "legacy";
 export type SecretMethod = "client_secret_basic" | "client_secret_post";
-export type RsaSigningAlgorithm = "RS256" | "RS384" | "RS512";
+export type CimdProfile = "jwks" | "jwks_uri" | "none";
+export type CimdPrivateKeyProfile = Exclude<CimdProfile, "none">;
 
-export type PrivateKeySource =
-  | {
-      sourceType: "key_file";
-      path: string;
-      password?: string;
-    }
-  | {
-      sourceType: "key_store";
-      path: string;
-      password: string;
-      keyAlias: string;
-      keyPassword: string;
-    };
-
-export type NoClientAuthentication = { authMethod: "none" };
 export type ClientSecretAuthentication = {
   authMethod: SecretMethod;
   clientSecret: string;
 };
-export type PrivateKeyJwtAuthentication = {
-  authMethod: "private_key_jwt";
-  algorithm: RsaSigningAlgorithm;
-  keyId?: string;
-  key: PrivateKeySource;
-};
+
+export interface CimdProfileInfo {
+  id: CimdProfile;
+  label: string;
+  description: string;
+  url: string;
+  tokenEndpointAuthMethod: "private_key_jwt" | "none";
+  redirectUri: string;
+  supportsClientCredentials: boolean;
+}
 
 export type AuthConfig =
   | { authType: "none" }
@@ -60,27 +50,24 @@ export type AuthConfig =
       clientId: string;
       issuer: string;
       redirectUri: string;
-      clientAuth: NoClientAuthentication | ClientSecretAuthentication | PrivateKeyJwtAuthentication;
+      clientAuth: ClientSecretAuthentication;
       scopes: string[];
     }
   | {
       authType: "cimd_authorization_code";
-      url: string;
-      redirectUri: string;
-      clientAuth: NoClientAuthentication | PrivateKeyJwtAuthentication;
+      profile: CimdProfile;
       scopes: string[];
     }
   | {
       authType: "client_credentials";
       clientId: string;
       issuer: string;
-      clientAuth: ClientSecretAuthentication | PrivateKeyJwtAuthentication;
+      clientAuth: ClientSecretAuthentication;
       scopes: string[];
     }
   | {
       authType: "cimd_client_credentials";
-      url: string;
-      clientAuth: PrivateKeyJwtAuthentication;
+      profile: CimdPrivateKeyProfile;
       scopes: string[];
     };
 
