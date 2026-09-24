@@ -1,4 +1,5 @@
 import type {
+  CimdProfileInfo,
   ConnectionStatus,
   CreateConnectionRequest,
   CreateConnectionResponse,
@@ -45,6 +46,10 @@ const connectionPath = (sessionId: string, connectionId: string) =>
   `${sessionPath(sessionId)}/connections/${encodeURIComponent(connectionId)}`;
 
 export const api = {
+  listCimdProfiles() {
+    return request<CimdProfileInfo[]>("/cimd/profiles");
+  },
+
   listConnections(sessionId: string) {
     return request<ConnectionStatus[]>(`${sessionPath(sessionId)}/connections`);
   },

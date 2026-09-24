@@ -278,6 +278,7 @@ a { color: inherit; }
 .field input:focus, .field select:focus, .input-with-icon:focus-within, .json-editor:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .input-with-icon { height: 39px; display: flex; align-items: center; gap: 8px; padding: 0 11px; color: var(--faint); }
 .input-with-icon input { height: auto; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none !important; }
+.input-with-icon a { flex: none; display: grid; place-items: center; color: var(--accent); }
 .form-divider { height: 1px; background: var(--border); margin: 25px 0; }
 .auth-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 9px; }
 .auth-options button { display: flex; align-items: flex-start; gap: 9px; padding: 11px; text-align: left; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
@@ -297,6 +298,9 @@ a { color: inherit; }
 .cimd-note strong, .cimd-note small { display: block; }
 .cimd-note strong { font-size: 10px; }
 .cimd-note small { color: var(--muted); font-size: 9px; margin-top: 3px; }
+.form-notice { display: flex; align-items: center; gap: 7px; padding: 9px 10px; border-radius: 8px; font-size: 9px; }
+.form-notice.error { color: var(--red); background: var(--red-soft); border: 1px solid var(--red-border); }
+.form-notice.warning { color: var(--amber); background: var(--amber-soft); border: 1px solid color-mix(in srgb, var(--amber) 32%, transparent); }
 .signing-fields { display: flex; flex-direction: column; gap: 13px; padding: 14px; border: 1px solid var(--border); background: var(--surface-2); border-radius: 10px; }
 .signing-heading { display: flex; align-items: center; gap: 9px; color: var(--accent); padding-bottom: 10px; border-bottom: 1px solid var(--border); }
 .signing-heading strong, .signing-heading small { display: block; }

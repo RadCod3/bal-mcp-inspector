@@ -13,7 +13,6 @@ import {
   LockKeyhole,
   Loader2,
   Moon,
-  Pencil,
   Plus,
   Power,
   Radio,
@@ -31,14 +30,15 @@ import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, us
 import { api } from "./api";
 import type {
   AuthConfig,
+  CimdProfile,
+  CimdProfileInfo,
   ConnectionState,
   ConnectionStatus,
   CreateConnectionRequest,
   InspectorEvent,
   McpTool,
-  PrivateKeyJwtAuthentication,
   ProtocolMode,
-  RsaSigningAlgorithm,
+  SecretMethod,
 } from "./types";
 
 const SESSION_KEY = "balInspector.browserSessionId";
@@ -74,8 +74,6 @@ const EVENT_TYPES = [
 
 type AuthType = "none" | "authorization_code" | "client_credentials" |
   "cimd_authorization_code" | "cimd_client_credentials";
-type TokenAuthMethod = "none" | "client_secret_basic" | "client_secret_post" | "private_key_jwt";
-type KeySourceType = "key_file" | "key_store";
 type View = "events" | "tools";
 type EventFilter = "all" | "http" | "mcp" | "oauth" | "errors";
 
@@ -88,24 +86,13 @@ interface ConnectionForm {
   issuer: string;
   redirectUri: string;
   scopes: string;
-  tokenAuthMethod: TokenAuthMethod;
-  cimdUrl: string;
-  signingAlgorithm: RsaSigningAlgorithm;
-  keyId: string;
-  keySourceType: KeySourceType;
-  keyFilePath: string;
-  keyFilePassword: string;
-  keyStorePath: string;
-  keyStorePassword: string;
-  keyAlias: string;
-  keyPassword: string;
+  tokenAuthMethod: SecretMethod;
+  cimdProfile: CimdProfile;
 }
 
-const DEFAULT_CIMD_URL = "https://mute-hall-afe0.tggallage1.workers.dev/metadata.json";
 // In dev, callbacks go straight to the local backend; in deployments, nginx proxies them from this origin.
 const CALLBACK_ORIGIN = import.meta.env.DEV ? "http://localhost:8080" : window.location.origin;
 const STANDARD_CALLBACK_URL = `${CALLBACK_ORIGIN}/api/v1/oauth/callback`;
-const CIMD_CALLBACK_URL = `${CALLBACK_ORIGIN}/callback`;
 
 const initialForm: ConnectionForm = {
   serverUrl: "http://localhost:9090/mcp",
@@ -116,47 +103,14 @@ const initialForm: ConnectionForm = {
   issuer: "",
   redirectUri: STANDARD_CALLBACK_URL,
   scopes: "",
-  tokenAuthMethod: "none",
-  cimdUrl: DEFAULT_CIMD_URL,
-  signingAlgorithm: "RS256",
-  keyId: "",
-  keySourceType: "key_file",
-  keyFilePath: "",
-  keyFilePassword: "",
-  keyStorePath: "",
-  keyStorePassword: "",
-  keyAlias: "",
-  keyPassword: "",
+  tokenAuthMethod: "client_secret_basic",
+  cimdProfile: "none",
 };
-
-function privateKeyJwtConfig(form: ConnectionForm): PrivateKeyJwtAuthentication {
-  return {
-    authMethod: "private_key_jwt",
-    algorithm: form.signingAlgorithm,
-    keyId: form.keyId || undefined,
-    key: form.keySourceType === "key_file"
-      ? {
-          sourceType: "key_file",
-          path: form.keyFilePath,
-          password: form.keyFilePassword || undefined,
-        }
-      : {
-          sourceType: "key_store",
-          path: form.keyStorePath,
-          password: form.keyStorePassword,
-          keyAlias: form.keyAlias,
-          keyPassword: form.keyPassword,
-        },
-  };
-}
 
 function clearedSecrets(form: ConnectionForm): ConnectionForm {
   return {
     ...form,
     clientSecret: "",
-    keyFilePassword: "",
-    keyStorePassword: "",
-    keyPassword: "",
   };
 }
 
@@ -669,27 +623,18 @@ export default function App() {
     const scopes = form.scopes.split(/[\s,]+/).map((scope) => scope.trim()).filter(Boolean);
     let auth: AuthConfig;
     if (form.authType === "authorization_code") {
-      const clientAuth = form.tokenAuthMethod === "none"
-        ? { authMethod: "none" as const }
-        : form.tokenAuthMethod === "private_key_jwt"
-          ? privateKeyJwtConfig(form)
-          : { authMethod: form.tokenAuthMethod, clientSecret: form.clientSecret };
       auth = {
         authType: "authorization_code",
         clientId: form.clientId,
         issuer: form.issuer,
         redirectUri: form.redirectUri,
-        clientAuth,
+        clientAuth: {authMethod: form.tokenAuthMethod, clientSecret: form.clientSecret},
         scopes,
       };
     } else if (form.authType === "cimd_authorization_code") {
       auth = {
         authType: "cimd_authorization_code",
-        url: form.cimdUrl,
-        redirectUri: form.redirectUri,
-        clientAuth: form.tokenAuthMethod === "private_key_jwt"
-          ? privateKeyJwtConfig(form)
-          : { authMethod: "none" },
+        profile: form.cimdProfile,
         scopes,
       };
     } else if (form.authType === "client_credentials") {
@@ -697,21 +642,13 @@ export default function App() {
         authType: "client_credentials",
         clientId: form.clientId,
         issuer: form.issuer,
-        clientAuth: form.tokenAuthMethod === "private_key_jwt"
-          ? privateKeyJwtConfig(form)
-          : {
-              authMethod: form.tokenAuthMethod === "client_secret_post"
-                ? "client_secret_post"
-                : "client_secret_basic",
-              clientSecret: form.clientSecret,
-            },
+        clientAuth: {authMethod: form.tokenAuthMethod, clientSecret: form.clientSecret},
         scopes,
       };
     } else if (form.authType === "cimd_client_credentials") {
       auth = {
         authType: "cimd_client_credentials",
-        url: form.cimdUrl,
-        clientAuth: privateKeyJwtConfig(form),
+        profile: form.cimdProfile === "none" ? "jwks" : form.cimdProfile,
         scopes,
       };
     } else {
@@ -987,39 +924,39 @@ function ConnectionPanel({
   onSubmit: (event: FormEvent) => void;
   onCancel?: () => void;
 }) {
-  const [editingCimdUrl, setEditingCimdUrl] = useState(false);
+  const [cimdProfiles, setCimdProfiles] = useState<CimdProfileInfo[]>([]);
+  const [cimdProfilesError, setCimdProfilesError] = useState<string | null>(null);
   const update = <K extends keyof ConnectionForm>(key: K, value: ConnectionForm[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
 
+  useEffect(() => {
+    let active = true;
+    api.listCimdProfiles()
+      .then((profiles) => {
+        if (!active) return;
+        setCimdProfiles(profiles);
+        setCimdProfilesError(null);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setCimdProfilesError(error instanceof Error ? error.message : "Could not load CIMD profiles");
+      });
+    return () => { active = false; };
+  }, []);
+
   const selectAuthType = (authType: AuthType) => {
-    const tokenAuthMethod: TokenAuthMethod = authType === "authorization_code" ||
-      authType === "cimd_authorization_code"
-      ? "none"
-      : authType === "cimd_client_credentials"
-        ? "private_key_jwt"
-        : authType === "client_credentials"
-          ? "client_secret_basic"
-          : "none";
     setForm((current) => ({
       ...current,
       authType,
-      tokenAuthMethod,
-      redirectUri: authType === "cimd_authorization_code"
-        ? CIMD_CALLBACK_URL
-        : current.authType === "cimd_authorization_code"
-          ? STANDARD_CALLBACK_URL
-          : current.redirectUri,
+      tokenAuthMethod: "client_secret_basic",
+      cimdProfile: authType === "cimd_client_credentials" ? "jwks" :
+        authType === "cimd_authorization_code" ? "none" : current.cimdProfile,
     }));
-    if (authType === "cimd_authorization_code" || authType === "cimd_client_credentials") {
-      setEditingCimdUrl(false);
-    }
   };
 
   const isCimd = form.authType === "cimd_authorization_code" ||
     form.authType === "cimd_client_credentials";
-  const isAuthorizationCode = form.authType === "authorization_code" ||
-    form.authType === "cimd_authorization_code";
-  const usesPrivateKeyJwt = form.tokenAuthMethod === "private_key_jwt";
+  const selectedCimdProfile = cimdProfiles.find((profile) => profile.id === form.cimdProfile);
 
   return (
     <div className="setup-wrap">
@@ -1076,23 +1013,60 @@ function ConnectionPanel({
                 <div className="cimd-note">
                   <div><Braces size={17} /></div>
                   <span>
-                    <strong>The metadata URL is the OAuth client ID</strong>
-                    <small>{form.authType === "cimd_client_credentials" ? "Client credentials requires private_key_jwt." : "Authorization code may be public or use private_key_jwt."}</small>
+                    <strong>Choose a backend-managed CIMD client</strong>
+                    <small>The inspector owns the signing key. Only its public key is exposed through the selected document.</small>
                   </span>
                 </div>
                 <label className="field">
-                  <span>
-                    Client ID Metadata Document
-                    <button className="field-edit" type="button" onClick={() => setEditingCimdUrl((value) => !value)}>
-                      {editingCimdUrl ? <LockKeyhole size={12} /> : <Pencil size={12} />}
-                      {editingCimdUrl ? "Lock" : "Edit"}
-                    </button>
-                  </span>
-                  <div className={`input-with-icon ${editingCimdUrl ? "editing" : "locked"}`}>
-                    {editingCimdUrl ? <Pencil size={15} /> : <LockKeyhole size={15} />}
-                    <input type="url" required readOnly={!editingCimdUrl} value={form.cimdUrl} onChange={(event) => update("cimdUrl", event.target.value)} />
-                  </div>
+                  <span>Client ID Metadata profile</span>
+                  <select
+                    required
+                    value={form.cimdProfile}
+                    onChange={(event) => update("cimdProfile", event.target.value as CimdProfile)}
+                  >
+                    {cimdProfiles.map((profile) => (
+                      <option
+                        key={profile.id}
+                        value={profile.id}
+                        disabled={form.authType === "cimd_client_credentials" && !profile.supportsClientCredentials}
+                      >
+                        {profile.label}
+                        {form.authType === "cimd_client_credentials" && !profile.supportsClientCredentials
+                          ? " (authorization code only)"
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
                 </label>
+                {cimdProfilesError && <div className="form-notice error"><CircleAlert size={15} />{cimdProfilesError}</div>}
+                {selectedCimdProfile && !selectedCimdProfile.url.startsWith("https://") && (
+                  <div className="form-notice warning">
+                    <CircleAlert size={15} />
+                    Local preview only. Deploy the backend on HTTPS and configure its public origin before using this client ID with an authorization server.
+                  </div>
+                )}
+                {selectedCimdProfile && (
+                  <div className="signing-fields">
+                    <div className="signing-heading">
+                      <LockKeyhole size={16} />
+                      <span><strong>{selectedCimdProfile.label}</strong><small>{selectedCimdProfile.description}</small></span>
+                    </div>
+                    <label className="field">
+                      <span>Client ID Metadata Document</span>
+                      <div className="input-with-icon locked">
+                        <LockKeyhole size={15} />
+                        <input readOnly value={selectedCimdProfile.url} />
+                        <a href={selectedCimdProfile.url} target="_blank" rel="noreferrer" title="Open metadata document"><ExternalLink size={14} /></a>
+                      </div>
+                    </label>
+                    <div className="field-grid">
+                      <label className="field"><span>Token endpoint authentication</span><input readOnly value={selectedCimdProfile.tokenEndpointAuthMethod} /></label>
+                      {form.authType === "cimd_authorization_code" && (
+                        <label className="field"><span>Registered redirect URI</span><input readOnly value={selectedCimdProfile.redirectUri} /></label>
+                      )}
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <div className="field-grid">
@@ -1101,54 +1075,24 @@ function ConnectionPanel({
               </div>
             )}
 
-            {isAuthorizationCode && (
-              <label className="field"><span>Redirect URI {isCimd && <em>must appear in the metadata document</em>}</span><input type="url" required value={form.redirectUri} onChange={(e) => update("redirectUri", e.target.value)} /></label>
+            {form.authType === "authorization_code" && (
+              <label className="field"><span>Redirect URI</span><input type="url" required value={form.redirectUri} onChange={(e) => update("redirectUri", e.target.value)} /></label>
             )}
 
-            <label className="field">
-              <span>Token endpoint authentication</span>
-              <select
-                value={form.tokenAuthMethod}
-                disabled={form.authType === "cimd_client_credentials"}
-                onChange={(event) => update("tokenAuthMethod", event.target.value as TokenAuthMethod)}
-              >
-                {isAuthorizationCode && <option value="none">None (public client)</option>}
-                {!isCimd && <option value="client_secret_basic">Client secret — HTTP Basic</option>}
-                {!isCimd && <option value="client_secret_post">Client secret — request body</option>}
-                <option value="private_key_jwt">Private key JWT</option>
-              </select>
-            </label>
-
-            {(form.tokenAuthMethod === "client_secret_basic" || form.tokenAuthMethod === "client_secret_post") && (
-              <label className="field"><span>Client secret</span><input type="password" required value={form.clientSecret} onChange={(e) => update("clientSecret", e.target.value)} placeholder="Not persisted" autoComplete="new-password" /></label>
-            )}
-
-            {usesPrivateKeyJwt && (
-              <div className="signing-fields">
-                <div className="signing-heading"><KeyRound size={16} /><span><strong>Private key JWT</strong><small>RSA keys only. File paths are resolved on the backend host.</small></span></div>
-                <div className="field-grid">
-                  <label className="field"><span>Signing algorithm</span><select value={form.signingAlgorithm} onChange={(event) => update("signingAlgorithm", event.target.value as RsaSigningAlgorithm)}><option value="RS256">RS256</option><option value="RS384">RS384</option><option value="RS512">RS512</option></select></label>
-                  <label className="field"><span>Key ID <em>optional</em></span><input value={form.keyId} onChange={(event) => update("keyId", event.target.value)} placeholder="mcp-signing-1" /></label>
-                </div>
-                <label className="field"><span>Key source</span><select value={form.keySourceType} onChange={(event) => update("keySourceType", event.target.value as KeySourceType)}><option value="key_file">Private-key file</option><option value="key_store">Key store</option></select></label>
-                {form.keySourceType === "key_file" ? (
-                  <div className="field-grid">
-                    <label className="field"><span>Private-key file</span><input required value={form.keyFilePath} onChange={(event) => update("keyFilePath", event.target.value)} placeholder="C:\\keys\\client-private.pem" /></label>
-                    <label className="field"><span>Key password <em>optional</em></span><input type="password" value={form.keyFilePassword} onChange={(event) => update("keyFilePassword", event.target.value)} autoComplete="new-password" /></label>
-                  </div>
-                ) : (
-                  <>
-                    <div className="field-grid">
-                      <label className="field"><span>Key-store path</span><input required value={form.keyStorePath} onChange={(event) => update("keyStorePath", event.target.value)} placeholder="C:\\keys\\client.p12" /></label>
-                      <label className="field"><span>Key-store password</span><input type="password" required value={form.keyStorePassword} onChange={(event) => update("keyStorePassword", event.target.value)} autoComplete="new-password" /></label>
-                    </div>
-                    <div className="field-grid">
-                      <label className="field"><span>Key alias</span><input required value={form.keyAlias} onChange={(event) => update("keyAlias", event.target.value)} /></label>
-                      <label className="field"><span>Private-key password</span><input type="password" required value={form.keyPassword} onChange={(event) => update("keyPassword", event.target.value)} autoComplete="new-password" /></label>
-                    </div>
-                  </>
-                )}
-              </div>
+            {!isCimd && (
+              <>
+                <label className="field">
+                  <span>Token endpoint authentication</span>
+                  <select
+                    value={form.tokenAuthMethod}
+                    onChange={(event) => update("tokenAuthMethod", event.target.value as SecretMethod)}
+                  >
+                    <option value="client_secret_basic">Client secret — HTTP Basic</option>
+                    <option value="client_secret_post">Client secret — request body</option>
+                  </select>
+                </label>
+                <label className="field"><span>Client secret</span><input type="password" required value={form.clientSecret} onChange={(e) => update("clientSecret", e.target.value)} placeholder="Not persisted" autoComplete="new-password" /></label>
+              </>
             )}
 
             <label className="field"><span>Scopes <em>optional, separated by spaces or commas</em></span><input value={form.scopes} onChange={(e) => update("scopes", e.target.value)} placeholder="openid profile tools.read" /></label>
@@ -1157,7 +1101,7 @@ function ConnectionPanel({
 
         <div className="form-actions">
           {onCancel && <button className="secondary-button" type="button" onClick={onCancel}>Cancel</button>}
-          <button className="primary-button" disabled={submitting}>
+          <button className="primary-button" disabled={submitting || (isCimd && !selectedCimdProfile)}>
             {submitting ? <Loader2 className="spin" size={16} /> : <ArrowRight size={16} />}
             {submitting ? "Creating connection" : "Connect and inspect"}
           </button>
