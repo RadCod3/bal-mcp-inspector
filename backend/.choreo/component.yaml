@@ -1,0 +1,13 @@
+schemaVersion: 1.2
+
+endpoints:
+  - name: inspector-api
+    displayName: MCP Inspector API
+    service:
+      # Root, so both /api/v1/* and the CIMD /callback are exposed
+      basePath: /
+      port: 8080
+    type: REST
+    # Only the frontend's nginx proxy calls the backend, from inside the project
+    networkVisibilities:
+      - Project
