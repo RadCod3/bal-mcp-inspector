@@ -102,8 +102,10 @@ interface ConnectionForm {
 }
 
 const DEFAULT_CIMD_URL = "https://mute-hall-afe0.tggallage1.workers.dev/metadata.json";
-const STANDARD_CALLBACK_URL = "http://localhost:8080/api/v1/oauth/callback";
-const CIMD_CALLBACK_URL = "http://localhost:8080/callback";
+// In dev, callbacks go straight to the local backend; in deployments, nginx proxies them from this origin.
+const CALLBACK_ORIGIN = import.meta.env.DEV ? "http://localhost:8080" : window.location.origin;
+const STANDARD_CALLBACK_URL = `${CALLBACK_ORIGIN}/api/v1/oauth/callback`;
+const CIMD_CALLBACK_URL = `${CALLBACK_ORIGIN}/callback`;
 
 const initialForm: ConnectionForm = {
   serverUrl: "http://localhost:9090/mcp",
