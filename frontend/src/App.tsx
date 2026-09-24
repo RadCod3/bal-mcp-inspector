@@ -1,33 +1,28 @@
 import {
-  ArrowRight,
+  ArrowLeftRight,
   Braces,
   Check,
-  ChevronRight,
   CircleAlert,
-  CircleDot,
   CircleOff,
-  Clock3,
   ExternalLink,
   KeyRound,
-  ListFilter,
   LockKeyhole,
   Loader2,
   Moon,
   Plus,
   Power,
-  Radio,
   RefreshCw,
-  Search,
   Send,
   Server,
   Sun,
-  TerminalSquare,
-  Trash2,
   Wrench,
   X,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
+import { CodeBlock } from "./components/CodeBlock";
+import { RequestLog } from "./components/RequestLog";
+import { hostOf } from "./requests";
 import type {
   AuthConfig,
   CimdProfile,
@@ -44,6 +39,7 @@ import type {
 const SESSION_KEY = "balInspector.browserSessionId";
 const CONNECTION_KEY = "balInspector.activeConnectionId";
 const THEME_KEY = "balInspector.theme";
+const MOD_KEY = /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘" : "Ctrl";
 
 type Theme = "light" | "dark";
 
@@ -74,8 +70,7 @@ const EVENT_TYPES = [
 
 type AuthType = "none" | "authorization_code" | "client_credentials" |
   "cimd_authorization_code" | "cimd_client_credentials";
-type View = "events" | "tools";
-type EventFilter = "all" | "http" | "mcp" | "oauth" | "errors";
+type View = "requests" | "tools";
 
 interface ConnectionForm {
   serverUrl: string;
@@ -134,259 +129,6 @@ function shortId(value: string) {
   return value.length > 12 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
 }
 
-function formatTime(timestamp: string) {
-  const date = new Date(timestamp);
-  return Number.isNaN(date.valueOf())
-    ? timestamp
-    : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-
-function eventCategory(event: InspectorEvent): Exclude<EventFilter, "all"> {
-  if (event.eventType === "client.error" || event.eventType.endsWith(".failed") ||
-      (event.statusCode !== undefined && event.statusCode >= 400 && event.statusCode !== 401)) return "errors";
-  if (event.eventType.startsWith("oauth.")) return "oauth";
-  if (event.eventType.startsWith("mcp.")) return "mcp";
-  return "http";
-}
-
-interface EventGroup {
-  id: number;
-  kind: "exchange" | "milestone";
-  events: InspectorEvent[];
-  title: string;
-  subtitle: string;
-  category: Exclude<EventFilter, "all">;
-  statusCode?: number;
-}
-
-function groupMatchesFilter(group: EventGroup, filter: EventFilter) {
-  return filter === "all" || group.category === filter ||
-    group.events.some((event) => eventCategory(event) === filter);
-}
-
-function eventHeader(event: InspectorEvent, name: string) {
-  const entry = Object.entries(event.eventHeaders ?? {})
-    .find(([headerName]) => headerName.toLowerCase() === name.toLowerCase())?.[1];
-  return Array.isArray(entry) ? entry[0] : entry;
-}
-
-function parsedEventBody(event: InspectorEvent): Record<string, unknown> | null {
-  if (!event.eventBody) return null;
-  try {
-    const value = JSON.parse(event.eventBody) as unknown;
-    return value && !Array.isArray(value) && typeof value === "object"
-      ? value as Record<string, unknown>
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function requestTitle(event: InspectorEvent) {
-  const body = parsedEventBody(event);
-  const method = eventHeader(event, "mcp-method") ??
-    (typeof body?.method === "string" ? body.method : undefined);
-  if (method) {
-    const params = body?.params && typeof body.params === "object"
-      ? body.params as Record<string, unknown>
-      : null;
-    const toolName = typeof params?.name === "string" ? params.name : undefined;
-    const labels: Record<string, string> = {
-      "server/discover": "Discover MCP server",
-      "initialize": "Initialize MCP connection",
-      "tools/list": "List tools",
-      "tools/call": toolName ? `Call tool · ${toolName}` : "Call tool",
-    };
-    return labels[method] ?? method;
-  }
-
-  const url = event.eventUrl ?? "";
-  if (url.includes("oauth-protected-resource")) return "Discover protected resource";
-  if (url.includes("oauth-authorization-server") || url.includes("openid-configuration")) {
-    return "Discover authorization server";
-  }
-  if (url.includes("/token")) return "Exchange authorization token";
-  return `${event.httpMethod ?? "HTTP"} request`;
-}
-
-function compactUrl(value?: string) {
-  if (!value) return "";
-  try {
-    const url = new URL(value);
-    return `${url.host}${url.pathname}`;
-  } catch {
-    return value;
-  }
-}
-
-function milestoneTitle(event: InspectorEvent) {
-  const labels: Record<string, string> = {
-    "connection.connecting": "Connection started",
-    "connection.connected": "MCP connection ready",
-    "connection.failed": "Connection failed",
-    "connection.closed": "Connection closed",
-    "oauth.challenge": "Authorization challenge received",
-    "oauth.authorization_redirect": "Authorization redirect prepared",
-    "oauth.authorization_required": "User authorization required",
-    "oauth.authorization_callback": "Authorization callback received",
-    "oauth.token_acquired": "Access token acquired",
-    "tools.list_failed": "Tool discovery failed",
-    "tools.call_failed": "Tool call failed",
-    "client.error": "Client transport error",
-  };
-  return labels[event.eventType] ?? event.eventType;
-}
-
-function visualCategory(events: InspectorEvent[]) {
-  const request = events.find((event) => event.eventType === "http.request");
-  if (events.some((event) => event.eventType.endsWith(".failed") || event.eventType === "client.error" ||
-      (event.statusCode !== undefined && event.statusCode >= 400 && event.statusCode !== 401))) {
-    return "errors" as const;
-  }
-  if (request && eventHeader(request, "mcp-method")) return "mcp" as const;
-  if (events.some((event) => event.eventType.startsWith("oauth.") ||
-      event.eventTarget === "authorization_server" || event.eventTarget === "user_agent")) {
-    return "oauth" as const;
-  }
-  if (events.some((event) => event.eventType.startsWith("mcp."))) return "mcp" as const;
-  return "http" as const;
-}
-
-function groupEvents(events: InspectorEvent[]): EventGroup[] {
-  const rawGroups: { kind: EventGroup["kind"]; events: InspectorEvent[] }[] = [];
-  let exchange: { kind: EventGroup["kind"]; events: InspectorEvent[] } | null = null;
-
-  for (const event of events) {
-    if (event.eventType === "http.request") {
-      exchange = { kind: "exchange", events: [event] };
-      rawGroups.push(exchange);
-      continue;
-    }
-    if (exchange && ["http.response", "http.body", "mcp.message", "client.error"].includes(event.eventType)) {
-      exchange.events.push(event);
-      continue;
-    }
-    if (exchange && ["tools.list_failed", "tools.call_failed"].includes(event.eventType)) {
-      exchange.events.push(event);
-      exchange = null;
-      continue;
-    }
-    exchange = null;
-    rawGroups.push({ kind: "milestone", events: [event] });
-  }
-
-  return rawGroups.map((group, index) => {
-    const first = group.events[0];
-    const response = [...group.events].reverse().find((event) => event.eventType === "http.response");
-    return {
-      id: first.sequence,
-      kind: group.kind,
-      events: group.events,
-      title: group.kind === "exchange" ? requestTitle(first) : milestoneTitle(first),
-      subtitle: group.kind === "exchange"
-        ? compactUrl(first.eventUrl)
-        : first.eventMessage ?? first.eventTarget,
-      category: visualCategory(group.events),
-      statusCode: response?.statusCode,
-    };
-  });
-}
-
-function formattedBody(body: string) {
-  try {
-    return JSON.stringify(JSON.parse(body), null, 2);
-  } catch {
-    return body;
-  }
-}
-
-function formatDuration(start: string, end: string) {
-  const elapsed = new Date(end).valueOf() - new Date(start).valueOf();
-  if (!Number.isFinite(elapsed) || elapsed <= 0) return "";
-  if (elapsed < 1000) return `${elapsed} ms`;
-  return `${(elapsed / 1000).toFixed(elapsed < 10000 ? 1 : 0)} s`;
-}
-
-function targetLabel(target: string) {
-  const labels: Record<string, string> = {
-    mcp_server: "MCP server",
-    authorization_server: "Authorization server",
-    protected_resource: "Protected resource",
-    user_agent: "Browser",
-    inspector: "Inspector",
-  };
-  return labels[target] ?? target.replaceAll("_", " ");
-}
-
-function eventLabel(event: InspectorEvent) {
-  const labels: Record<string, string> = {
-    "http.request": "Request sent",
-    "http.response": "Response received",
-    "http.body": "Response body read",
-    "mcp.message": "MCP message decoded",
-    "oauth.challenge": "Authorization challenge",
-    "oauth.authorization_redirect": "Authorization redirect",
-    "oauth.authorization_required": "User authorization needed",
-    "oauth.authorization_callback": "Authorization callback",
-    "oauth.token_acquired": "Access token acquired",
-    "client.error": "Transport error",
-    "connection.connecting": "Connection started",
-    "connection.connected": "Connection ready",
-    "connection.failed": "Connection failed",
-    "connection.closed": "Connection closed",
-    "tools.list_failed": "Tool discovery failed",
-    "tools.call_failed": "Tool call failed",
-  };
-  return labels[event.eventType] ?? event.eventType.replaceAll(".", " ");
-}
-
-function eventNarrative(event: InspectorEvent) {
-  if (event.eventMessage) return event.eventMessage;
-  const body = parsedEventBody(event);
-  if (event.eventType === "http.request") {
-    return `${event.httpMethod ?? "HTTP"} request to ${targetLabel(event.eventTarget)}`;
-  }
-  if (event.eventType === "http.response") {
-    return event.statusCode
-      ? `${targetLabel(event.eventTarget)} returned HTTP ${event.statusCode}`
-      : `Response received from ${targetLabel(event.eventTarget)}`;
-  }
-  if (event.eventType === "http.body") return `Response content received from ${targetLabel(event.eventTarget)}`;
-  if (event.eventType === "mcp.message") {
-    if (typeof body?.method === "string") return `Decoded ${body.method} message`;
-    if (body?.error) return "Decoded an MCP error response";
-    if (body?.result !== undefined) return "Decoded an MCP result";
-    return "Decoded the MCP protocol message";
-  }
-  return `Client activity involving ${targetLabel(event.eventTarget)}`;
-}
-
-type OutcomeTone = "success" | "warning" | "danger" | "pending" | "neutral";
-
-function activityOutcome(group: EventGroup): { label: string; tone: OutcomeTone } {
-  if (group.statusCode === 401) return { label: "Authorization required", tone: "warning" };
-  if (group.category === "errors" || (group.statusCode !== undefined && group.statusCode >= 400)) {
-    return { label: group.statusCode ? `HTTP ${group.statusCode}` : "Failed", tone: "danger" };
-  }
-  if (group.statusCode !== undefined) return { label: `HTTP ${group.statusCode}`, tone: "success" };
-  const type = group.events[group.events.length - 1].eventType;
-  if (["connection.connected", "oauth.token_acquired"].includes(type)) return { label: "Completed", tone: "success" };
-  if (["oauth.authorization_required", "oauth.authorization_redirect", "oauth.challenge"].includes(type)) {
-    return { label: "Action needed", tone: "warning" };
-  }
-  if (type === "connection.connecting" || group.kind === "exchange") return { label: "In progress", tone: "pending" };
-  if (type === "connection.closed") return { label: "Closed", tone: "neutral" };
-  return { label: "Recorded", tone: "neutral" };
-}
-
-function ActivityGlyph({ group }: { group: EventGroup }) {
-  if (group.category === "errors") return <CircleAlert size={17} />;
-  if (group.category === "oauth") return <KeyRound size={17} />;
-  if (group.category === "mcp") return <Braces size={17} />;
-  if (group.events.some((event) => event.eventType === "connection.connected")) return <Check size={17} />;
-  return <Send size={16} />;
-}
-
 function defaultArguments(tool: McpTool) {
   const schema = tool.inputSchema;
   if (!schema || typeof schema !== "object") return "{}";
@@ -427,9 +169,7 @@ export default function App() {
   const [events, setEvents] = useState<InspectorEvent[]>([]);
   const [streamOnline, setStreamOnline] = useState(false);
   const [authorizationUrl, setAuthorizationUrl] = useState("");
-  const [view, setView] = useState<View>("events");
-  const [eventFilter, setEventFilter] = useState<EventFilter>("all");
-  const [search, setSearch] = useState("");
+  const [view, setView] = useState<View>("requests");
   const [form, setForm] = useState<ConnectionForm>(initialForm);
   const [showForm, setShowForm] = useState(!connectionId);
   const [submitting, setSubmitting] = useState(false);
@@ -733,34 +473,17 @@ export default function App() {
 
   const connected = status?.state === "connected";
 
+  const requestCount = useMemo(
+    () => events.filter((event) => event.eventType === "http.request").length,
+    [events],
+  );
+  const serverInfo = status?.connectionInfo?.serverInfo;
+
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <div>
-            <strong>MCP Inspector</strong>
-            <span>Configure, test, and observe MCP clients</span>
-          </div>
-        </div>
-        <div className="topbar-actions">
-          <button
-            className="theme-toggle"
-            type="button"
-            onClick={() => setTheme((current) => current === "light" ? "dark" : "light")}
-            title={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
-            aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
-          >
-            {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
-          </button>
-          <div className="session-chip" title={sessionId}>
-            <KeyRound size={14} /> Session {shortId(sessionId)}
-          </div>
-        </div>
-      </header>
-
       {notice && (
         <div className="notice" role="alert">
-          <CircleAlert size={17} />
+          <CircleAlert size={18} />
           <span>{notice}</span>
           <button onClick={() => setNotice(null)} aria-label="Dismiss"><X size={16} /></button>
         </div>
@@ -768,37 +491,56 @@ export default function App() {
 
       <main className="workspace">
         <aside className="sidebar">
-          <div className="sidebar-heading">
-            <div>
-              <span className="eyebrow">Workspace</span>
-              <h2>Connections</h2>
-            </div>
-            <button className="icon-button" onClick={() => setShowForm(true)} title="New connection">
-              <Plus size={18} />
-            </button>
+          <div className="brand">
+            <strong>MCP Inspector</strong>
+            <span>for the Ballerina MCP client</span>
           </div>
 
-          <div className="connection-list">
-            {connections.length === 0 && <p className="muted compact">No active connections yet.</p>}
-            {connections.map((connection) => (
-              <button
-                key={connection.connectionId}
-                className={`connection-item ${connection.connectionId === connectionId ? "active" : ""}`}
-                onClick={() => selectConnection(connection.connectionId)}
-              >
-                <span className={`state-dot ${connection.state}`} />
-                <span className="connection-copy">
-                  <strong>{new URL(connection.serverUrl).host || connection.serverUrl}</strong>
-                  <small>{stateLabels[connection.state]}</small>
-                </span>
-                <ChevronRight size={16} />
+          <div className="sidebar-section">
+            <div className="sidebar-heading">
+              <h2>Connections</h2>
+              <button className={`new-connection ${showForm ? "active" : ""}`} onClick={() => setShowForm(true)}>
+                <Plus size={15} /> New
               </button>
-            ))}
+            </div>
+
+            <div className="connection-list">
+              {connections.length === 0 && <p className="sidebar-empty">Nothing connected yet.</p>}
+              {connections.map((connection) => {
+                // The list is fetched on demand, so prefer the live status for the active connection.
+                const state = connection.connectionId === connectionId && status ? status.state : connection.state;
+                return (
+                  <button
+                    key={connection.connectionId}
+                    className={`connection-item ${connection.connectionId === connectionId && !showForm ? "active" : ""}`}
+                    onClick={() => selectConnection(connection.connectionId)}
+                    title={connection.serverUrl}
+                  >
+                    <span className={`state-dot ${state}`} />
+                    <span className="connection-copy">
+                      <strong>{hostOf(connection.serverUrl)}</strong>
+                      <small>{stateLabels[state]}</small>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="sidebar-foot">
-            <span>Ephemeral mode</span>
-            <small>Connections reset with the backend</small>
+            <p>Connections are kept in backend memory and cleared when it restarts.</p>
+            <div className="sidebar-foot-row">
+              <span className="session-id" title={`Browser session ${sessionId}`}>Session <code>{shortId(sessionId)}</code></span>
+              <button
+                className="icon-button"
+                type="button"
+                onClick={() => setTheme((current) => current === "light" ? "dark" : "light")}
+                title={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
+                aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
+              >
+                {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -812,45 +554,42 @@ export default function App() {
               onCancel={connectionId ? () => setShowForm(false) : undefined}
             />
           ) : status ? (
-            <>
-              <section className="connection-hero">
-                <div className="hero-main">
-                  <div className={`hero-icon ${status.state}`}><Server size={22} /></div>
-                  <div>
-                    <div className="hero-title-row">
-                      <h1>{status.serverUrl}</h1>
-                      <span className={`status-pill ${status.state}`}>
-                        {status.state === "connecting" && <Loader2 className="spin" size={13} />}
-                        {status.state === "connected" && <Check size={13} />}
-                        {stateLabels[status.state]}
-                      </span>
-                    </div>
-                    <p>
-                      {shortId(status.connectionId)} · {events.length} captured events
-                      {status.connectionInfo?.protocolVersion && ` · MCP ${status.connectionInfo.protocolVersion}`}
-                    </p>
-                  </div>
-                </div>
-                <div className="hero-actions">
-                  <span className={`stream-indicator ${streamOnline ? "online" : ""}`}>
-                    <Radio size={14} /> {streamOnline ? "Live" : "Reconnecting"}
+            <div className="connection-view">
+              <section className="connection-header">
+                <div className="connection-heading">
+                  <span className={`status-pill ${status.state}`}>
+                    {status.state === "connecting" ? <Loader2 className="spin" size={13} /> : <span className="status-dot" />}
+                    {stateLabels[status.state]}
                   </span>
-                  <button className="secondary-button danger" onClick={disconnect}>
-                    <Power size={15} /> Disconnect
-                  </button>
+                  <h1 title={status.serverUrl}>{status.serverUrl}</h1>
                 </div>
+                <div className="connection-meta">
+                  {serverInfo && (
+                    <span><Server size={14} /> {serverInfo.title ?? serverInfo.name} <code>{serverInfo.version}</code></span>
+                  )}
+                  {status.connectionInfo?.protocolVersion && (
+                    <span>Protocol <code>{status.connectionInfo.protocolVersion}</code></span>
+                  )}
+                  <span title={status.connectionId}>ID <code>{shortId(status.connectionId)}</code></span>
+                  <span className={`stream-indicator ${streamOnline ? "online" : ""}`}>
+                    <span className="status-dot" /> {streamOnline ? "Live" : "Reconnecting"}
+                  </span>
+                </div>
+                <button className="secondary-button danger" onClick={disconnect}>
+                  <Power size={15} /> Disconnect
+                </button>
               </section>
 
               {status.errorMessage && (
-                <div className="inline-alert"><CircleAlert size={17} /> {status.errorMessage}</div>
+                <div className="callout danger"><CircleAlert size={18} /> <span>{status.errorMessage}</span></div>
               )}
 
               {authorizationUrl && status.state === "awaiting_authorization" && (
                 <div className="authorization-banner">
-                  <div className="auth-icon"><KeyRound size={20} /></div>
+                  <KeyRound size={20} />
                   <div>
                     <strong>Authorization is required</strong>
-                    <p>Continue in the provider window. This inspector never stores the returned code or token.</p>
+                    <p>Continue in the provider window. The inspector never stores the returned code or token.</p>
                   </div>
                   <a className="primary-button" href={authorizationUrl} target="_blank" rel="noreferrer">
                     Authorize <ExternalLink size={15} />
@@ -858,25 +597,17 @@ export default function App() {
                 </div>
               )}
 
-              <nav className="view-tabs">
-                <button className={view === "events" ? "active" : ""} onClick={() => setView("events")}>
-                  <TerminalSquare size={16} /> Event log <span>{events.length}</span>
+              <nav className="view-tabs" role="tablist">
+                <button role="tab" aria-selected={view === "requests"} className={view === "requests" ? "active" : ""} onClick={() => setView("requests")}>
+                  <ArrowLeftRight size={16} /> Requests <span>{requestCount}</span>
                 </button>
-                <button className={view === "tools" ? "active" : ""} onClick={() => setView("tools")}>
+                <button role="tab" aria-selected={view === "tools"} className={view === "tools" ? "active" : ""} onClick={() => setView("tools")}>
                   <Wrench size={16} /> Tools <span>{tools.length}</span>
                 </button>
               </nav>
 
-              {view === "events" ? (
-                <EventLog
-                  events={events}
-                  total={events.length}
-                  filter={eventFilter}
-                  search={search}
-                  onFilter={setEventFilter}
-                  onSearch={setSearch}
-                  onClear={() => setEvents([])}
-                />
+              {view === "requests" ? (
+                <RequestLog events={events} onClear={() => setEvents([])} />
               ) : (
                 <ToolsPanel
                   connected={connected}
@@ -896,12 +627,12 @@ export default function App() {
                   onCall={callTool}
                 />
               )}
-            </>
+            </div>
           ) : (
             <div className="empty-state">
-              <div><CircleOff size={30} /></div>
+              <div className="empty-icon"><CircleOff size={28} /></div>
               <h1>No active connection</h1>
-              <p>Configure an MCP server to inspect its transport, authorization flow, and tools.</p>
+              <p>Connect to an MCP server to see every HTTP request the client makes, step through authorization, and call its tools.</p>
               <button className="primary-button" onClick={() => setShowForm(true)}><Plus size={16} /> New connection</button>
             </div>
           )}
@@ -961,15 +692,14 @@ function ConnectionPanel({
   return (
     <div className="setup-wrap">
       <div className="setup-intro">
-        <span className="eyebrow">New inspection</span>
         <h1>Connect to an MCP server</h1>
-        <p>Configure the Ballerina client, follow every protocol exchange, and exercise tools from one workspace.</p>
+        <p>Configure the Ballerina MCP client, then watch every HTTP request it makes and call the server's tools.</p>
       </div>
 
       <form className="setup-card" onSubmit={onSubmit}>
         <div className="form-section-heading">
-          <div className="section-number">01</div>
-          <div><h3>Server</h3><p>Where should the inspector connect?</p></div>
+          <h3>Server</h3>
+          <p>The MCP endpoint the Ballerina client connects to.</p>
         </div>
         <div className="field-grid two-one">
           <label className="field">
@@ -988,8 +718,8 @@ function ConnectionPanel({
 
         <div className="form-divider" />
         <div className="form-section-heading">
-          <div className="section-number">02</div>
-          <div><h3>Authorization</h3><p>Secrets are discarded from the browser after submission.</p></div>
+          <h3>Authorization</h3>
+          <p>How the client gets an access token. Secrets are cleared from the browser once you connect.</p>
         </div>
         <div className="auth-options">
           {([
@@ -1000,7 +730,7 @@ function ConnectionPanel({
             ["cimd_client_credentials", "CIMD credentials", "Metadata + private key"],
           ] as const).map(([value, label, hint]) => (
             <button type="button" key={value} className={form.authType === value ? "active" : ""} onClick={() => selectAuthType(value)}>
-              <span className="radio-mark">{form.authType === value && <CircleDot size={14} />}</span>
+              <span className="radio-mark" />
               <span><strong>{label}</strong><small>{hint}</small></span>
             </button>
           ))}
@@ -1102,162 +832,12 @@ function ConnectionPanel({
         <div className="form-actions">
           {onCancel && <button className="secondary-button" type="button" onClick={onCancel}>Cancel</button>}
           <button className="primary-button" disabled={submitting || (isCimd && !selectedCimdProfile)}>
-            {submitting ? <Loader2 className="spin" size={16} /> : <ArrowRight size={16} />}
-            {submitting ? "Creating connection" : "Connect and inspect"}
+            {submitting && <Loader2 className="spin" size={16} />}
+            {submitting ? "Connecting" : "Connect"}
           </button>
         </div>
       </form>
     </div>
-  );
-}
-
-function EventLog({ events, total, filter, search, onFilter, onSearch, onClear }: {
-  events: InspectorEvent[];
-  total: number;
-  filter: EventFilter;
-  search: string;
-  onFilter: (value: EventFilter) => void;
-  onSearch: (value: string) => void;
-  onClear: () => void;
-}) {
-  const eventListRef = useRef<HTMLDivElement>(null);
-  const [following, setFollowing] = useState(true);
-  const filters: { value: EventFilter; label: string }[] = [
-    { value: "all", label: "All" }, { value: "http", label: "HTTP" },
-    { value: "mcp", label: "MCP" }, { value: "oauth", label: "OAuth" },
-    { value: "errors", label: "Errors" },
-  ];
-  const groups = useMemo(() => groupEvents(events), [events]);
-  const filterCounts = useMemo(() => ({
-    all: groups.length,
-    http: groups.filter((group) => groupMatchesFilter(group, "http")).length,
-    mcp: groups.filter((group) => groupMatchesFilter(group, "mcp")).length,
-    oauth: groups.filter((group) => groupMatchesFilter(group, "oauth")).length,
-    errors: groups.filter((group) => groupMatchesFilter(group, "errors")).length,
-  }), [groups]);
-  const query = search.trim().toLowerCase();
-  const visibleGroups = groups.filter((group) => {
-    const matchesFilter = groupMatchesFilter(group, filter);
-    const matchesSearch = !query || group.title.toLowerCase().includes(query) ||
-      group.subtitle.toLowerCase().includes(query) ||
-      group.events.some((event) => JSON.stringify(event).toLowerCase().includes(query));
-    return matchesFilter && matchesSearch;
-  });
-
-  const jumpToLatest = useCallback((behavior: ScrollBehavior = "smooth") => {
-    const list = eventListRef.current;
-    if (!list) return;
-    list.scrollTo({ top: list.scrollHeight, behavior });
-    setFollowing(true);
-  }, []);
-
-  useEffect(() => {
-    if (!following) return;
-    const frame = window.requestAnimationFrame(() => jumpToLatest("auto"));
-    return () => window.cancelAnimationFrame(frame);
-  }, [following, jumpToLatest, total, visibleGroups.length]);
-
-  const trackScrollPosition = () => {
-    const list = eventListRef.current;
-    if (!list) return;
-    setFollowing(list.scrollHeight - list.scrollTop - list.clientHeight < 48);
-  };
-
-  return (
-    <section className="panel log-panel">
-      <div className="panel-toolbar">
-        <div className="filter-group"><ListFilter size={15} />{filters.map((item) => <button key={item.value} className={filter === item.value ? "active" : ""} onClick={() => onFilter(item.value)}>{item.label}<span>{filterCounts[item.value]}</span></button>)}</div>
-        <div className="toolbar-actions">
-          <button className={`tail-button ${following ? "active" : ""}`} onClick={() => jumpToLatest()} title="Follow the newest activity">
-            <Radio size={13} /> {following ? "Following" : "Jump to latest"}
-          </button>
-          <label className="search-box"><Search size={15} /><input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search events" /></label>
-          <button className="icon-button" onClick={onClear} disabled={total === 0} title="Clear local event view"><Trash2 size={16} /></button>
-        </div>
-      </div>
-      <div className="activity-overview">
-        <div><strong>Connection activity</strong><span>Each entry is one operation. Expand it only when you need protocol details.</span></div>
-        <span>{visibleGroups.length} of {groups.length} operations</span>
-      </div>
-      <div className="event-list" ref={eventListRef} onScroll={trackScrollPosition}>
-        {visibleGroups.length === 0 ? (
-          <div className="panel-empty"><Clock3 size={25} /><strong>No matching events</strong><span>New client activity will appear here in real time.</span></div>
-        ) : visibleGroups.map((group) => <EventGroupRow key={group.id} group={group} />)}
-      </div>
-    </section>
-  );
-}
-
-function EventGroupRow({ group }: { group: EventGroup }) {
-  const [open, setOpen] = useState(false);
-  const first = group.events[0];
-  const last = group.events[group.events.length - 1];
-  const request = group.events.find((event) => event.eventType === "http.request");
-  const duration = formatDuration(first.timestamp, last.timestamp);
-  const outcome = activityOutcome(group);
-  const hasDetails = group.events.length > 1 || group.events.some((event) =>
-    event.eventBody || Object.keys(event.eventHeaders ?? {}).length > 0 || event.authorizationUrl || event.eventMessage);
-  const categoryLabel = group.category === "mcp" ? "MCP" :
-    group.category === "oauth" ? "OAuth" : group.category === "errors" ? "Error" :
-      group.kind === "milestone" ? "Lifecycle" : "HTTP";
-  return (
-    <article className={`activity-card ${group.category} ${open ? "open" : ""}`}>
-      <button className="activity-summary" onClick={() => hasDetails && setOpen(!open)} aria-expanded={open}>
-        <span className={`activity-glyph ${group.category}`}><ActivityGlyph group={group} /></span>
-        <span className="activity-copy">
-          <span className="activity-title">
-            <strong>{group.title}</strong>
-            <span className={`event-kind ${group.category}`}>{categoryLabel}</span>
-          </span>
-          <span className="activity-subtitle">{group.subtitle || targetLabel(first.eventTarget)}</span>
-          <span className="activity-meta">
-            {request?.httpMethod && <span>{request.httpMethod}</span>}
-            <span>{targetLabel(first.eventTarget)}</span>
-            {duration && <span>{duration}</span>}
-          </span>
-        </span>
-        <span className="activity-result">
-          <span className={`outcome ${outcome.tone}`}><CircleDot size={11} />{outcome.label}</span>
-          <time>{formatTime(first.timestamp)}</time>
-        </span>
-        {hasDetails && <ChevronRight className={open ? "rotated" : ""} size={17} />}
-      </button>
-      {open && hasDetails && (
-        <div className="activity-details">
-          {request && (
-            <div className="activity-route">
-              <div><span>From</span><strong>Inspector client</strong></div>
-              <ArrowRight size={17} />
-              <div><span>To</span><strong>{targetLabel(request.eventTarget)}</strong></div>
-              {duration && <div className="route-duration"><span>Duration</span><strong>{duration}</strong></div>}
-            </div>
-          )}
-          <div className="technical-heading">
-            <div><strong>Protocol details</strong><span>{group.events.length} observer {group.events.length === 1 ? "event" : "events"}</span></div>
-            <small>Raw sequence {first.sequence}{first.sequence !== last.sequence ? `–${last.sequence}` : ""}</small>
-          </div>
-          {group.events.map((event) => (
-            <div className={`protocol-step ${event.eventType.includes("error") || event.eventType.endsWith("failed") ? "failed" : ""}`} key={event.sequence}>
-              <div className="protocol-rail"><span /></div>
-              <div className="protocol-content">
-                <div className="protocol-heading">
-                  <div><strong>{eventLabel(event)}</strong><span>{eventNarrative(event)}</span></div>
-                  <time>{formatTime(event.timestamp)}{event.statusCode ? ` · HTTP ${event.statusCode}` : ""}</time>
-                </div>
-                {event.authorizationUrl && <div className="event-payload prominent"><span>Continue authorization</span><a href={event.authorizationUrl} target="_blank" rel="noreferrer">{event.authorizationUrl}<ExternalLink size={12} /></a></div>}
-                {event.eventBody && <div className="event-payload"><span>{event.eventType === "mcp.message" ? "Decoded message" : "Body"}</span><pre>{formattedBody(event.eventBody)}</pre></div>}
-                {Object.keys(event.eventHeaders ?? {}).length > 0 && (
-                  <details className="raw-disclosure">
-                    <summary>Headers <span>{Object.keys(event.eventHeaders ?? {}).length}</span></summary>
-                    <pre>{JSON.stringify(event.eventHeaders, null, 2)}</pre>
-                  </details>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </article>
   );
 }
 
@@ -1278,11 +858,42 @@ function ToolsPanel({ connected, tools, loading, error, capabilityKnown, toolsAd
   onArguments: (value: string) => void;
   onCall: () => void;
 }) {
-  if (!connected) return <div className="panel panel-empty tall"><Wrench size={28} /><strong>Waiting for a connection</strong><span>Tools become available after the MCP handshake completes.</span></div>;
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!selected) return;
+    editorRef.current?.focus();
+  }, [selected?.name]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!connected || !selected) return;
+    const invokeOnShortcut = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) return;
+      event.preventDefault();
+      if (!calling) onCall();
+    };
+    window.addEventListener("keydown", invokeOnShortcut);
+    return () => window.removeEventListener("keydown", invokeOnShortcut);
+  }, [calling, connected, onCall, selected]);
+
+  if (!connected) {
+    return (
+      <div className="panel-empty tall">
+        <Wrench size={26} />
+        <strong>Waiting for a connection</strong>
+        <span>Tools become available after the MCP handshake completes.</span>
+      </div>
+    );
+  }
   return (
     <section className="tools-layout">
-      <div className="panel tool-list-panel">
-        <div className="panel-title"><div><span className="eyebrow">Discovered</span><h3>Tools</h3></div><button className="icon-button" onClick={onRefresh} disabled={loading}><RefreshCw className={loading ? "spin" : ""} size={16} /></button></div>
+      <div className="tool-list-panel">
+        <div className="panel-title">
+          <h3>Tools {tools.length > 0 && <span className="count">{tools.length}</span>}</h3>
+          <button className="icon-button" onClick={onRefresh} disabled={loading} title="Reload tools/list" aria-label="Reload tools">
+            <RefreshCw className={loading ? "spin" : ""} size={16} />
+          </button>
+        </div>
         <div className="tool-list">
           {error && !loading && (
             <div className="panel-empty tool-error">
@@ -1299,27 +910,74 @@ function ToolsPanel({ connected, tools, loading, error, capabilityKnown, toolsAd
             <div className="panel-empty">
               <CircleOff size={22} />
               <strong>Tools capability not advertised</strong>
-              <span>The MCP initialize response for {protocolVersion ?? "this connection"} did not declare a tools capability, so tools/list was not sent.</span>
+              <span>The initialize response for {protocolVersion ?? "this connection"} did not declare a tools capability, so tools/list was not sent.</span>
             </div>
           )}
           {!error && !loading && toolsAdvertised && tools.length === 0 && (
-            <div className="panel-empty"><CircleOff size={22} /><strong>No tools returned</strong><span>The server advertised tools, and the explicit tools/list request returned an empty list.</span></div>
+            <div className="panel-empty"><CircleOff size={22} /><strong>No tools returned</strong><span>The server advertised tools, but tools/list returned an empty list.</span></div>
           )}
           {!error && !loading && !capabilityKnown && (
             <div className="panel-empty"><Loader2 className="spin" size={22} /><span>Reading negotiated server capabilities…</span></div>
           )}
-          {tools.map((tool) => <button key={tool.name} className={selected?.name === tool.name ? "active" : ""} onClick={() => onSelect(tool)}><span className="tool-icon"><Wrench size={15} /></span><span><strong>{tool.title ?? tool.name}</strong><small>{tool.description ?? "No description provided"}</small></span><ChevronRight size={15} /></button>)}
+          {tools.map((tool) => (
+            <button key={tool.name} className={selected?.name === tool.name ? "active" : ""} onClick={() => onSelect(tool)}>
+              <span className="tool-copy">
+                <strong>{tool.title ?? tool.name}</strong>
+                <small>{tool.description ?? "No description provided"}</small>
+              </span>
+            </button>
+          ))}
         </div>
       </div>
-      <div className="panel tool-workbench">
-        {!selected ? <div className="panel-empty tall"><Braces size={28} /><strong>Select a tool</strong><span>Review its schema, provide JSON arguments, and invoke it.</span></div> : <>
-          <div className="tool-heading"><div><span className="eyebrow">Tool invocation</span><h2>{selected.title ?? selected.name}</h2><p>{selected.description}</p></div><span className="tool-name">{selected.name}</span></div>
-          <div className="schema-block"><span>Input schema</span><pre>{JSON.stringify(selected.inputSchema ?? {}, null, 2)}</pre></div>
-          <label className="editor-label"><span>Arguments</span><span>JSON object</span></label>
-          <textarea className="json-editor" spellCheck={false} value={argumentsText} onChange={(e) => onArguments(e.target.value)} />
-          <div className="invoke-row"><button className="primary-button" onClick={onCall} disabled={calling}>{calling ? <Loader2 className="spin" size={16} /> : <Send size={15} />}{calling ? "Invoking" : "Invoke tool"}</button></div>
-          {result !== null && <div className="result-block"><div><span>Result</span><span className="success-label"><Check size={13} /> Completed</span></div><pre>{JSON.stringify(result, null, 2)}</pre></div>}
-        </>}
+      <div className="tool-workbench">
+        {!selected ? (
+          <div className="panel-empty tall">
+            <Braces size={26} />
+            <strong>Select a tool</strong>
+            <span>Review its input schema, provide JSON arguments, and invoke it.</span>
+          </div>
+        ) : (
+          <>
+            <div className="tool-heading">
+              <div>
+                <h2>{selected.title ?? selected.name}</h2>
+                {selected.description && <p>{selected.description}</p>}
+              </div>
+              {selected.title && <code className="tool-name">{selected.name}</code>}
+            </div>
+            <details className="detail-block">
+              <summary><span>Input schema</span></summary>
+              <CodeBlock value={JSON.stringify(selected.inputSchema ?? {})} maxHeight={320} />
+            </details>
+            <label className="editor-label" htmlFor="tool-arguments"><span>Arguments</span><small>JSON object</small></label>
+            <textarea
+              id="tool-arguments"
+              className="json-editor"
+              spellCheck={false}
+              value={argumentsText}
+              ref={editorRef}
+              onChange={(e) => onArguments(e.target.value)}
+            />
+            <div className="invoke-row">
+              <span className="hint"><kbd>{MOD_KEY}</kbd> <kbd>Enter</kbd> to invoke</span>
+              <button className="primary-button" onClick={onCall} disabled={calling}>
+                {calling ? <Loader2 className="spin" size={16} /> : <Send size={15} />}
+                {calling ? "Invoking" : "Invoke tool"}
+              </button>
+            </div>
+            {result !== null && (
+              <div className="result-block">
+                <div className="detail-block-title">
+                  <span>Result</span>
+                  {(result as { isError?: unknown } | null)?.isError === true
+                    ? <small className="error-label"><CircleAlert size={14} /> Tool returned an error</small>
+                    : <small className="success-label"><Check size={14} /> Completed</small>}
+                </div>
+                <CodeBlock value={JSON.stringify(result)} maxHeight={480} />
+              </div>
+            )}
+          </>
+        )}
       </div>
     </section>
   );
