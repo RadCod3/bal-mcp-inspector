@@ -44,8 +44,8 @@ isolated function listCimdProfiles() returns CimdProfileInfo[] {
     return [
         {
             id: "jwks",
-            label: "Private key JWT · inline JWKS",
-            description: "The metadata document contains the inspector public key.",
+            label: "Signed JWT, key in the document",
+            description: "private_key_jwt. The document's jwks holds the inspector's public key.",
             url: cimdProfileUrl("jwks"),
             tokenEndpointAuthMethod: "private_key_jwt",
             redirectUri: effectiveCimdRedirectUri(),
@@ -53,8 +53,8 @@ isolated function listCimdProfiles() returns CimdProfileInfo[] {
         },
         {
             id: "jwks_uri",
-            label: "Private key JWT · JWKS URI",
-            description: "The metadata document links to the inspector JWKS endpoint.",
+            label: "Signed JWT, key at a JWKS URL",
+            description: "private_key_jwt. The document's jwks_uri points to the inspector's public keys.",
             url: cimdProfileUrl("jwks_uri"),
             tokenEndpointAuthMethod: "private_key_jwt",
             redirectUri: effectiveCimdRedirectUri(),
@@ -62,8 +62,8 @@ isolated function listCimdProfiles() returns CimdProfileInfo[] {
         },
         {
             id: "none",
-            label: "No token endpoint authentication",
-            description: "A public authorization-code client with no client authentication.",
+            label: "None, public client",
+            description: "No client authentication at the token endpoint. User sign-in only.",
             url: cimdProfileUrl("none"),
             tokenEndpointAuthMethod: "none",
             redirectUri: effectiveCimdRedirectUri(),
