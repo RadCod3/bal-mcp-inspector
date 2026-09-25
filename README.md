@@ -45,7 +45,15 @@ Public CIMD clients use the metadata document's registered callback. The default
 http://localhost:8080/callback
 ```
 
-The inspector exposes three backend-managed CIMD clients. Generate their shared RSA signing material once:
+The inspector exposes three backend-managed CIMD clients. Each client ID is the URL of its metadata document:
+
+| Client | Metadata document | Token authentication |
+| --- | --- | --- |
+| Confidential, inline key | `<cimdPublicBaseUrl>/oauth/confidential-client.json` | `private_key_jwt`, public key in `jwks` |
+| Confidential, key URL | `<cimdPublicBaseUrl>/oauth/confidential-client-jwks-uri.json` | `private_key_jwt`, public key at `jwks_uri` |
+| Public | `<cimdPublicBaseUrl>/oauth/public-client.json` | `none` |
+
+The public key set is served at `<cimdPublicBaseUrl>/oauth/jwks.json`. Generate the shared RSA signing material once:
 
 ```powershell
 cd backend

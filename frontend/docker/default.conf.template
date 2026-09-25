@@ -6,7 +6,7 @@ server {
     index index.html;
 
     # API, event stream, OAuth callbacks, and CIMD documents are served by the backend
-    location ~ ^/(api|callback|cimd)(/|$) {
+    location ~ ^/(api|callback|oauth)(/|$) {
         proxy_pass ${BACKEND_URL};
         proxy_http_version 1.1;
         proxy_ssl_server_name on;

@@ -136,20 +136,21 @@ service /api/v1 on inspectorListener {
     }
 }
 
-service /cimd on inspectorListener {
-    resource isolated function get clients/jwks() returns json|http:InternalServerError {
+// Client ID URLs can be shown to users on consent screens, so they name the OAuth client type.
+service /oauth on inspectorListener {
+    resource isolated function get confidential\-client\.json() returns json|http:InternalServerError {
         return cimdDocumentResponse("jwks");
     }
 
-    resource isolated function get clients/jwksUri() returns json|http:InternalServerError {
+    resource isolated function get confidential\-client\-jwks\-uri\.json() returns json|http:InternalServerError {
         return cimdDocumentResponse("jwks_uri");
     }
 
-    resource isolated function get clients/none() returns json|http:InternalServerError {
+    resource isolated function get public\-client\.json() returns json|http:InternalServerError {
         return cimdDocumentResponse("none");
     }
 
-    resource isolated function get jwks() returns json|http:InternalServerError {
+    resource isolated function get jwks\.json() returns json|http:InternalServerError {
         json|error result = loadCimdJwks();
         if result is error {
             return <http:InternalServerError>{body: <ApiError>{message: result.message()}};
