@@ -67,7 +67,8 @@ service /api/v1 on inspectorListener {
         return eventStream;
     }
 
-    resource isolated function get sessions/[string browserSessionId]/connections/[string connectionId]/tools()
+    resource isolated function get sessions/[string browserSessionId]/connections/[string connectionId]/tools(
+            boolean refresh = false)
             returns mcp:ListToolsResult|http:NotFound|http:Conflict|http:BadGateway {
         ConnectionSession? session = connectionRegistry.getOwned(browserSessionId, connectionId);
         if session is () {
@@ -77,6 +78,13 @@ service /api/v1 on inspectorListener {
         if status.state != "connected" {
             return <http:Conflict>{body: <ApiError>{message: string `Connection is ${status.state}`}};
         }
+        // Serve the last tools/list result so a page reload does not send another request to the server.
+        if !refresh {
+            mcp:ListToolsResult? cached = session.cachedTools();
+            if cached is mcp:ListToolsResult {
+                return cached;
+            }
+        }
         mcp:StreamableHttpClient mcpClient = session.mcpClient;
         mcp:ListToolsResult|error result = trap mcpClient->listTools();
         restoreConnectedState(session);
@@ -84,6 +92,7 @@ service /api/v1 on inspectorListener {
             appendLifecycleEvent(connectionId, "tools.list_failed", "connected", eventMessage = result.message());
             return <http:BadGateway>{body: <ApiError>{message: string `tools/list failed: ${result.message()}`}};
         }
+        session.cacheTools(result);
         return result;
     }
 

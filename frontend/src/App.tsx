@@ -560,12 +560,12 @@ export default function App() {
     };
   }, [connectionId, sessionId]);
 
-  const loadTools = useCallback(async () => {
+  const loadTools = useCallback(async (refresh = false) => {
     if (!connectionId || status?.state !== "connected") return;
     setToolsLoading(true);
     setToolsError(null);
     try {
-      const result = await api.listTools(sessionId, connectionId);
+      const result = await api.listTools(sessionId, connectionId, refresh);
       setTools(result.tools ?? []);
       if (selectedTool) {
         setSelectedTool(result.tools.find((tool) => tool.name === selectedTool.name) ?? null);
@@ -904,7 +904,7 @@ export default function App() {
                   argumentsText={argumentsText}
                   result={toolResult}
                   calling={callingTool}
-                  onRefresh={loadTools}
+                  onRefresh={() => void loadTools(true)}
                   onSelect={chooseTool}
                   onArguments={setArgumentsText}
                   onCall={callTool}

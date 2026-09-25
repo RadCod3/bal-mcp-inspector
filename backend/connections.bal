@@ -9,6 +9,7 @@ isolated class ConnectionSession {
     private ConnectionState state = "connecting";
     private string? errorMessage = ();
     private (readonly & mcp:ConnectionInfo)? connectionInfo = ();
+    private (readonly & mcp:ListToolsResult)? tools = ();
 
     isolated function init(string browserSessionId, string connectionId, string serverUrl,
             mcp:StreamableHttpClient mcpClient) {
@@ -42,6 +43,18 @@ isolated class ConnectionSession {
             self.state = "connected";
             self.errorMessage = ();
             self.connectionInfo = connectionInfo.cloneReadOnly();
+        }
+    }
+
+    isolated function cachedTools() returns (readonly & mcp:ListToolsResult)? {
+        lock {
+            return self.tools;
+        }
+    }
+
+    isolated function cacheTools(mcp:ListToolsResult tools) {
+        lock {
+            self.tools = tools.cloneReadOnly();
         }
     }
 }

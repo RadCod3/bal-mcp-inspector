@@ -69,8 +69,8 @@ export const api = {
     return request<void>(connectionPath(sessionId, connectionId), { method: "DELETE" });
   },
 
-  listTools(sessionId: string, connectionId: string) {
-    return request<ListToolsResult>(`${connectionPath(sessionId, connectionId)}/tools`);
+  listTools(sessionId: string, connectionId: string, refresh = false) {
+    return request<ListToolsResult>(`${connectionPath(sessionId, connectionId)}/tools${refresh ? "?refresh=true" : ""}`);
   },
 
   callTool(
