@@ -70,7 +70,8 @@ isolated function requestToken(ClientAuth? clientAuth, AuthorizationServerMetada
             httpMethod: "POST",
             eventMessage: response.message()
         });
-        return error OAuthTokenError(string `Request to token endpoint '${tokenEndpoint}' failed.`, response);
+        return error OAuthTokenError(string `Request to token endpoint '${tokenEndpoint}' failed: ${response.message()}`,
+            response);
     }
     notifyClientObserver(observer, {
         eventType: HTTP_RESPONSE,
@@ -192,7 +193,7 @@ isolated function buildClientAssertion(PrivateKeyJwtConfig clientAuth, string cl
     }
     string|jwt:Error assertion = jwt:issue(issuerConfig);
     if assertion is jwt:Error {
-        return error OAuthConfigError("Failed to issue the client assertion.", assertion);
+        return error OAuthConfigError(string `Failed to issue the client assertion: ${assertion.message()}`, assertion);
     }
     return assertion;
 }

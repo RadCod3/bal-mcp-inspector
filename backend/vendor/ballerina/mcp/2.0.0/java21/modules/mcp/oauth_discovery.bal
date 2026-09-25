@@ -230,8 +230,8 @@ isolated function discoverProtectedResourceMetadata(string[] candidateUrls, stri
     Error? cause = lastError;
     string attempted = string:'join(", ", ...candidateUrls);
     if cause is Error {
-        return error OAuthDiscoveryError(
-            string `Failed to retrieve protected resource metadata. Tried: ${attempted}.`, cause);
+        return error OAuthDiscoveryError(string `Failed to retrieve protected resource metadata. ` +
+            string `Tried: ${attempted}. Last error: ${cause.message()}`, cause);
     }
     return error OAuthDiscoveryError(
         string `Failed to retrieve protected resource metadata. Tried: ${attempted}.`);
@@ -295,7 +295,7 @@ isolated function discoverAuthorizationServerMetadata(string issuer,
     Error? cause = lastError;
     if cause is Error {
         return error OAuthDiscoveryError(
-            string `Failed to discover authorization server metadata for '${issuer}'.`, cause);
+            string `Failed to discover authorization server metadata for '${issuer}': ${cause.message()}`, cause);
     }
     return error OAuthDiscoveryError(
         string `Failed to discover authorization server metadata for '${issuer}'.`);
@@ -466,7 +466,7 @@ isolated function fetchJson(string targetUrl, readonly & AuthHttpConfig config,
             httpMethod: "GET",
             eventMessage: response.message()
         });
-        return error OAuthDiscoveryError(string `Request to '${targetUrl}' failed.`, response);
+        return error OAuthDiscoveryError(string `Request to '${targetUrl}' failed: ${response.message()}`, response);
     }
     notifyClientObserver(observer, {
         eventType: HTTP_RESPONSE,

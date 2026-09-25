@@ -176,8 +176,15 @@ isolated class StreamableHttpClientTransport {
             ? provider.tryGetAuthorizationHeader()
             : provider.getAuthorizationHeader(challenge);
         if value is Error {
-            return error AuthorizationError(
+            AuthorizationError authorizationError = error AuthorizationError(
                 string `Failed to obtain authorization for '${self.serverUrl}': ${value.message()}`, value);
+            notifyClientObserver(self.observer, {
+                eventType: CLIENT_ERROR,
+                eventTarget: AUTHORIZATION_SERVER,
+                eventUrl: self.serverUrl,
+                eventMessage: authorizationError.message()
+            });
+            return authorizationError;
         }
         return value;
     }
@@ -410,17 +417,17 @@ isolated class StreamableHttpClientTransport {
                 string `Server returned unsupported content type '${contentType}'.`
             );
         } on fail error e {
-            return error HttpClientError(string `Failed to send message to server: ${e.message()}`);
+            if e is AuthorizationError {
+                return e;
+            }
+            return error HttpClientError(string `Failed to send message to server: ${e.message()}`, e);
         }
     }
 
     isolated function sendProtocolRequest(JsonRpcRequest requestMessage, map<string|string[]> additionalHeaders,
             map<string> parameterHeaders = {}) returns Result|ClientError {
         map<string|string[]> requestHeaders = check prepareProtocolRequestHeaders(requestMessage, additionalHeaders, parameterHeaders);
-        http:Response|error httpResponse = self.execute(POST, requestHeaders, requestMessage);
-        if httpResponse is error {
-            return error HttpClientError("Failed to send modern MCP request", httpResponse);
-        }
+        http:Response httpResponse = check self.execute(POST, requestHeaders, requestMessage);
         return readProtocolResponse(httpResponse, requestMessage.id,
             observer = self.observer, serverUrl = self.serverUrl);
     }
@@ -428,9 +435,13 @@ isolated class StreamableHttpClientTransport {
     isolated function openProtocolSubscription(JsonRpcRequest requestMessage, SubscriptionFilter requestedFilter,
             map<string|string[]> additionalHeaders) returns stream<JsonRpcNotification, StreamError?>|ClientError {
         map<string|string[]> requestHeaders = check prepareProtocolRequestHeaders(requestMessage, additionalHeaders);
-        http:Response|error httpResponse = self.execute(POST, requestHeaders, requestMessage);
-        if httpResponse is error {
-            return error SseStreamEstablishmentError("Failed to open subscription", httpResponse);
+        http:Response|StreamableHttpTransportError httpResponse = self.execute(POST, requestHeaders, requestMessage);
+        if httpResponse is AuthorizationError {
+            return httpResponse;
+        }
+        if httpResponse is StreamableHttpTransportError {
+            return error SseStreamEstablishmentError(
+                string `Failed to open subscription: ${httpResponse.message()}`, httpResponse);
         }
         if httpResponse.statusCode != 200 || !httpResponse.getContentType().includes(CONTENT_TYPE_SSE) {
             Result|ClientError resultValue = readProtocolResponse(httpResponse, requestMessage.id,
@@ -493,8 +504,11 @@ isolated class StreamableHttpClientTransport {
                 new (sseEventStream, self.observer, self.serverUrl);
             return new stream<JsonRpcMessage, StreamError?>(streamTransformer);
         } on fail error e {
+            if e is AuthorizationError {
+                return e;
+            }
             return error SseStreamEstablishmentError(
-                string `Failed to establish SSE connection with server: ${e.message()}`
+                string `Failed to establish SSE connection with server: ${e.message()}`, e
             );
         }
     }
