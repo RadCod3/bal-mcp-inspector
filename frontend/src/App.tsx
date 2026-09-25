@@ -409,6 +409,18 @@ export default function App() {
     void refreshConnections();
   }, [refreshConnections]);
 
+  // Keep the sidebar entry in step with the live status, so it stays accurate after navigating away.
+  useEffect(() => {
+    if (!status) return;
+    setConnections((current) => {
+      const index = current.findIndex((item) => item.connectionId === status.connectionId);
+      if (index < 0 || current[index].state === status.state) return current;
+      const next = [...current];
+      next[index] = { ...current[index], state: status.state, errorMessage: status.errorMessage };
+      return next;
+    });
+  }, [status]);
+
   // Profiles are fetched each time a form opens, so a failed load is retried by reopening it.
   useEffect(() => {
     if (!formOpen) return;
