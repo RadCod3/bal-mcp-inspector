@@ -9,10 +9,10 @@ configurable string cimdPrivateKeyPassword = "";
 configurable string cimdJwksPath = "./secrets/cimd-jwks.json";
 configurable string cimdKeyId = "mcp-inspector-rs256";
 
-const string CIMD_JWKS_PATH = "/cimd/clients/jwks";
-const string CIMD_JWKS_URI_PATH = "/cimd/clients/jwksUri";
-const string CIMD_NONE_PATH = "/cimd/clients/none";
-const string CIMD_PUBLIC_KEYS_PATH = "/cimd/jwks";
+const string CIMD_JWKS_PATH = "/oauth/confidential-client.json";
+const string CIMD_JWKS_URI_PATH = "/oauth/confidential-client-jwks-uri.json";
+const string CIMD_NONE_PATH = "/oauth/public-client.json";
+const string CIMD_PUBLIC_KEYS_PATH = "/oauth/jwks.json";
 const string CIMD_CALLBACK_PATH = "/callback";
 
 isolated function normalizedCimdBaseUrl() returns string {

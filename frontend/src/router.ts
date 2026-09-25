@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-// /api, /callback and /cimd are proxied to the backend, so app routes must stay clear of them.
+// /api, /callback and /oauth are proxied to the backend, so app routes must stay clear of them.
 export type View = "requests" | "tools";
 
 export type Route =

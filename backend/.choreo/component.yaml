@@ -4,7 +4,7 @@ endpoints:
   - name: inspector-api
     displayName: MCP Inspector API
     service:
-      # Root, so both /api/v1/* and the CIMD /callback are exposed
+      # Root, so /api/v1/*, the CIMD documents under /oauth, and /callback are exposed
       basePath: /
       port: 8080
     type: REST
