@@ -121,7 +121,7 @@ const initialForm: ConnectionForm = {
   redirectUri: STANDARD_CALLBACK_URL,
   scopes: "",
   tokenAuthMethod: "client_secret_basic",
-  cimdProfile: "jwks",
+  cimdProfile: "none",
 };
 
 function clearedSecrets(form: ConnectionForm): ConnectionForm {
@@ -234,8 +234,8 @@ const secretMethodOptions = (Object.keys(secretMethodLabels) as SecretMethod[])
 type CimdClientAuth = "private_key_jwt" | "none";
 
 const cimdClientAuthOptions: { value: CimdClientAuth; label: string; hint: string }[] = [
-  { value: "private_key_jwt", label: "Signed JWT", hint: "The inspector signs a JWT with its private key (private_key_jwt)." },
   { value: "none", label: "None (public client)", hint: "The client doesn't authenticate at the token endpoint." },
+  { value: "private_key_jwt", label: "Signed JWT", hint: "The inspector signs a JWT with its private key (private_key_jwt)." },
 ];
 
 const keyLocationOptions: { value: CimdPrivateKeyProfile; label: string; hint: string }[] = [
