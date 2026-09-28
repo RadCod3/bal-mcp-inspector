@@ -251,6 +251,13 @@ function RequestDetail({ exchange, onClose }: { exchange: HttpExchange; onClose:
             <span>{event.eventMessage ?? "The client reported an error for this request."}</span>
           </div>
         ))}
+        {exchange.request.eventMessage && (
+          // Context the client gives for its own request, such as how a token request is authenticated.
+          <div className="callout info">
+            <Info size={16} />
+            <span>{exchange.request.eventMessage}</span>
+          </div>
+        )}
         {exchange.notes.map((event) => (
           <div className="callout info" key={event.sequence}>
             <Info size={16} />

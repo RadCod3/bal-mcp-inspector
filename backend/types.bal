@@ -11,9 +11,13 @@ public type ClientSecretAuthentication record {|
     string clientSecret;
 |};
 
-public type CimdProfile "jwks"|"jwks_uri"|"none";
+public type CimdProfile CimdConfidentialProfile|"none";
 
-public type CimdPrivateKeyProfile "jwks"|"jwks_uri";
+public type CimdConfidentialProfile CimdPrivateKeyJwtProfile|CimdMutualTlsProfile;
+
+public type CimdPrivateKeyJwtProfile "jwks"|"jwks_uri";
+
+public type CimdMutualTlsProfile "mtls_jwks"|"mtls_jwks_uri";
 
 public type CimdProfileInfo record {|
     CimdProfile id;
@@ -23,6 +27,8 @@ public type CimdProfileInfo record {|
     string tokenEndpointAuthMethod;
     string redirectUri;
     boolean supportsClientCredentials;
+    // SHA-256 thumbprint (x5t#S256) of the certificate a mutual TLS profile presents
+    string? certificateThumbprint = ();
 |};
 
 public type AuthorizationCodeAuthConfig record {|
@@ -50,7 +56,7 @@ public type ClientCredentialsAuthConfig record {|
 
 public type CimdClientCredentialsAuthConfig record {|
     "cimd_client_credentials" authType;
-    CimdPrivateKeyProfile profile;
+    CimdConfidentialProfile profile;
     string[] scopes = [];
 |};
 

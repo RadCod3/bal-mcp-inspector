@@ -10,3 +10,10 @@ cimdPrivateKeyPath = "./secrets/cimd-private-key.pem"
 cimdPrivateKeyPassword = ""
 cimdJwksPath = "./secrets/cimd-jwks.json"
 cimdKeyId = "mcp-inspector-rs256"
+
+# Backend-only mutual TLS material, created by scripts/generate-cimd-mtls-cert.mjs. The JWKS must
+# publish the certificate as x5c.
+cimdMtlsCertificatePath = "./secrets/cimd-mtls-certificate.pem"
+cimdMtlsPrivateKeyPath = "./secrets/cimd-mtls-private-key.pem"
+cimdMtlsPrivateKeyPassword = ""
+cimdMtlsJwksPath = "./secrets/cimd-mtls-jwks.json"

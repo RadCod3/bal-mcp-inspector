@@ -155,17 +155,32 @@ service /oauth on inspectorListener {
         return cimdDocumentResponse("jwks_uri");
     }
 
+    resource isolated function get mtls\-client\.json() returns json|http:InternalServerError {
+        return cimdDocumentResponse("mtls_jwks");
+    }
+
+    resource isolated function get mtls\-client\-jwks\-uri\.json() returns json|http:InternalServerError {
+        return cimdDocumentResponse("mtls_jwks_uri");
+    }
+
     resource isolated function get public\-client\.json() returns json|http:InternalServerError {
         return cimdDocumentResponse("none");
     }
 
     resource isolated function get jwks\.json() returns json|http:InternalServerError {
-        json|error result = loadCimdJwks();
-        if result is error {
-            return <http:InternalServerError>{body: <ApiError>{message: result.message()}};
-        }
-        return result;
+        return jwksResponse(loadCimdJwks());
     }
+
+    resource isolated function get mtls\-jwks\.json() returns json|http:InternalServerError {
+        return jwksResponse(loadCimdMtlsJwks());
+    }
+}
+
+isolated function jwksResponse(json|error result) returns json|http:InternalServerError {
+    if result is error {
+        return <http:InternalServerError>{body: <ApiError>{message: result.message()}};
+    }
+    return result;
 }
 
 service /callback on inspectorListener {

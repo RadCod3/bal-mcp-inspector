@@ -156,9 +156,10 @@ isolated function createAuthorizationCodeOAuthConfig(string connectionId, Author
 
 isolated function createCimdAuthorizationCodeOAuthConfig(string connectionId,
         CimdAuthorizationCodeAuthConfig authConfig) returns mcp:OAuthConfig|error {
-    mcp:CimdAuthorizationCodeConfig clientConfig = {url: cimdProfileUrl(authConfig.profile)};
-    if authConfig.profile != "none" {
-        clientConfig.clientAuth = check createCimdPrivateKeyJwtAuthentication();
+    CimdProfile profile = authConfig.profile;
+    mcp:CimdAuthorizationCodeConfig clientConfig = {url: cimdProfileUrl(profile)};
+    if profile != "none" {
+        clientConfig.clientAuth = check createCimdClientAuthentication(profile);
     }
     mcp:AuthorizationRedirectHandler onRedirect = isolated function(string authorizationUrl) returns error? {
         return redirectHandler(connectionId, authorizationUrl);
@@ -199,7 +200,7 @@ isolated function createCimdClientCredentialsOAuthConfig(CimdClientCredentialsAu
         grant: {
             clientConfig: {
                 url: cimdProfileUrl(authConfig.profile),
-                clientAuth: check createCimdPrivateKeyJwtAuthentication()
+                clientAuth: check createCimdClientAuthentication(authConfig.profile)
             }
         },
         scopes: authConfig.scopes
