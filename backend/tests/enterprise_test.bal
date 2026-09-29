@@ -133,6 +133,7 @@ function testIdentityProviderSignIn() returns error? {
             test:assertFalse(body.includes(MOCK_IDP_CODE));
             test:assertFalse(body.includes("idp-secret"));
             test:assertFalse(body.includes(tokenRequest["code_verifier"] ?: "missing"));
+            test:assertEquals(event.eventHeaders["Content-Type"], "application/x-www-form-urlencoded");
         }
         if event.eventType == "oauth.token_acquired" {
             idTokenAcquired = true;

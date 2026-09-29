@@ -81,6 +81,16 @@ export function parseJson(text?: string): unknown {
   }
 }
 
+// Parameters of a form-encoded request. The client's observer records token request parameters as a JSON
+// object (with credentials redacted) rather than the encoded body, so both shapes are read.
+export function formParams(event: InspectorEvent | undefined): [string, string][] | undefined {
+  const body = event?.eventBody;
+  if (!body || !(headerValue(event, "content-type") ?? "").includes("application/x-www-form-urlencoded")) return undefined;
+  const parsed = asRecord(parseJson(body));
+  if (parsed) return Object.entries(parsed).map(([name, value]) => [name, typeof value === "string" ? value : JSON.stringify(value)]);
+  return [...new URLSearchParams(body).entries()];
+}
+
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
 }

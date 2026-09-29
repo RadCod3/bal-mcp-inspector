@@ -8,8 +8,8 @@ import {
   exchangeMatches,
   exchangeStatus,
   formatDuration,
+  formParams,
   formatTime,
-  headerValue,
   hostOf,
   HttpExchange,
   requestName,
@@ -426,11 +426,8 @@ function Body({ event, label, hint }: { event: InspectorEvent; label: string; hi
   if (!event.eventBody) {
     return event.eventType === "http.request" ? null : <Block title={label}><p className="empty-note">Empty body.</p></Block>;
   }
-  const contentType = headerValue(event, "content-type") ?? "";
-  if (contentType.includes("application/x-www-form-urlencoded")) {
-    const params = [...new URLSearchParams(event.eventBody).entries()];
-    return <Block title={label} hint="form"><KeyValueTable rows={params} /></Block>;
-  }
+  const params = formParams(event);
+  if (params) return <Block title={label} hint="form"><KeyValueTable rows={params} /></Block>;
   return <Block title={label} hint={hint}><CodeBlock value={event.eventBody} maxHeight={520} /></Block>;
 }
 

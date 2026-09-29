@@ -1,6 +1,6 @@
 import packageJson from "../package.json";
 import type { InspectorEvent } from "./types";
-import { buildExchanges, durationMs, headerValue, HttpExchange, targetLabel } from "./requests";
+import { buildExchanges, durationMs, formParams, headerValue, HttpExchange, targetLabel } from "./requests";
 
 // Facts about the connection that a reader of an exported log needs to match it to a test run.
 export interface ExportContext {
@@ -15,6 +15,7 @@ const CAVEATS = [
   "Credentials (authorization headers, cookies, client secrets and assertions, codes, tokens, PKCE verifiers) are replaced by [REDACTED].",
   "Header order and casing may differ from the wire, and headers added by the HTTP transport (Host, Content-Length) are not shown.",
   "JSON responses are re-serialized by the client; SSE responses show only the data field of each event.",
+  "Token requests are recorded as parameters and shown form-encoded here; token response bodies are not recorded, since they carry tokens.",
 ];
 
 // Sequence numbers are gapless per connection, so a gap means events were cleared here or dropped by the backend.
@@ -60,6 +61,12 @@ function responseBodyText(exchange: HttpExchange) {
   return exchange.bodies.map((event) => event.eventBody ?? "").join("\n");
 }
 
+// Form bodies are rebuilt from the recorded parameters, leaving redaction markers readable.
+function requestBodyText(event: InspectorEvent) {
+  const params = formParams(event);
+  return params ? new URLSearchParams(params).toString().replaceAll("%5BREDACTED%5D", "[REDACTED]") : event.eventBody;
+}
+
 function withBody(lines: string[], body: string | undefined) {
   return body ? [...lines, "", body.replace(/\n+$/, "")] : lines;
 }
@@ -69,12 +76,13 @@ function exchangeLines(exchange: HttpExchange): string[] {
   const target = targetLabel(request.eventTarget);
   const lines = [`>>> #${request.sequence}  ${request.timestamp}  to ${target}`];
   if (request.eventMessage) lines.push(`# ${request.eventMessage}`);
-  lines.push(...withBody([`${request.httpMethod ?? "HTTP"} ${request.eventUrl ?? ""}`, ...headerLines(request)], request.eventBody));
+  lines.push(...withBody([`${request.httpMethod ?? "HTTP"} ${request.eventUrl ?? ""}`, ...headerLines(request)], requestBodyText(request)));
   lines.push("");
 
   if (response) {
     const duration = durationMs(exchange);
     lines.push(`<<< #${response.sequence}  ${response.timestamp}  from ${target}${duration === undefined ? "" : `  ${duration} ms`}`);
+    if (response.eventMessage) lines.push(`# ${response.eventMessage}`);
     for (const note of exchange.notes) lines.push(`# ${note.eventType}: ${note.eventMessage ?? ""}`);
     const statusLine = `HTTP ${response.statusCode ?? ""}`.trim();
     lines.push(...withBody([statusLine, ...headerLines(response)], responseBodyText(exchange)));
@@ -146,11 +154,17 @@ const HAR_PAGE_ID = "connection";
 function harEntry(exchange: HttpExchange) {
   const { request, response } = exchange;
   const requestType = headerValue(request, "content-type") ?? "";
+  const requestText = requestBodyText(request);
+  const params = formParams(request);
   const responseType = headerValue(response, "content-type") ?? "";
   const responseText = responseBodyText(exchange);
   const time = durationMs(exchange) ?? 0;
-  const comments = [request.eventMessage, ...exchange.notes.map((note) => note.eventMessage), ...exchange.errors.map((error) => error.eventMessage)]
-    .filter(Boolean);
+  const comments = [
+    request.eventMessage,
+    response?.eventMessage,
+    ...exchange.notes.map((note) => note.eventMessage),
+    ...exchange.errors.map((error) => error.eventMessage),
+  ].filter(Boolean);
   return {
     pageref: HAR_PAGE_ID,
     startedDateTime: request.timestamp,
@@ -162,17 +176,15 @@ function harEntry(exchange: HttpExchange) {
       cookies: [],
       headers: harHeaders(request),
       queryString: harQuery(request.eventUrl),
-      ...(request.eventBody ? {
+      ...(requestText ? {
         postData: {
           mimeType: requestType,
-          text: request.eventBody,
-          ...(requestType.includes("application/x-www-form-urlencoded") ? {
-            params: [...new URLSearchParams(request.eventBody).entries()].map(([name, value]) => ({ name, value })),
-          } : {}),
+          text: requestText,
+          ...(params ? { params: params.map(([name, value]) => ({ name, value })) } : {}),
         },
       } : {}),
       headersSize: -1,
-      bodySize: request.eventBody?.length ?? 0,
+      bodySize: requestText?.length ?? 0,
     },
     response: {
       status: response?.statusCode ?? 0,

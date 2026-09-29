@@ -214,8 +214,11 @@ isolated function postTokenForm(string connectionId, string tokenEndpoint, map<s
     foreach [string, string] [name, value] in params.entries() {
         recordedParams[name] = name == "code" || name == "code_verifier" || name == "client_secret" ? REDACTED : value;
     }
+    // The content type goes to `post` separately, so it is added to the recorded headers here.
+    map<string> recordedHeaders = headers.clone();
+    recordedHeaders["Content-Type"] = "application/x-www-form-urlencoded";
     appendIdentityProviderEvent(connectionId, "http.request", tokenEndpoint, "POST",
-        eventHeaders = redactedHeaders(headers), eventBody = recordedParams.toJsonString(),
+        eventHeaders = redactedHeaders(recordedHeaders), eventBody = recordedParams.toJsonString(),
         eventMessage = "OpenID Connect token request");
     http:Client tokenClient = check new (tokenEndpoint);
     http:Response|error response = tokenClient->post("", check encodeForm(params), headers,
