@@ -1352,6 +1352,7 @@
         "pkg:ballerina/ballerina/http@2.16.7",
         "pkg:ballerina/ballerina/jballerina.java@0.0.0",
         "pkg:ballerina/ballerina/jwt@2.15.1",
+        "pkg:ballerina/ballerina/lang.array@0.0.0",
         "pkg:ballerina/ballerina/lang.regexp@0.0.0",
         "pkg:ballerina/ballerina/log@2.17.0",
         "pkg:ballerina/ballerina/time@2.8.1",
