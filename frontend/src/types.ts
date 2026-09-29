@@ -45,8 +45,33 @@ export interface CimdProfileInfo {
   certificateThumbprint?: string;
 }
 
+// The enterprise Identity Provider of an enterprise-managed (ID-JAG) connection. The backend signs the
+// user in there and exchanges the ID token for an ID-JAG.
+export interface IdentityProviderSettings {
+  issuer: string;
+  clientId: string;
+  // Omitted for a public client
+  clientAuth?: ClientSecretAuthentication;
+  redirectUri: string;
+  loginScopes: string[];
+}
+
 export type AuthConfig =
   | { authType: "none" }
+  | {
+      authType: "identity_assertion";
+      clientId: string;
+      issuer: string;
+      clientAuth: ClientSecretAuthentication;
+      identityProvider: IdentityProviderSettings;
+      scopes: string[];
+    }
+  | {
+      authType: "cimd_identity_assertion";
+      profile: CimdProfile;
+      identityProvider: IdentityProviderSettings;
+      scopes: string[];
+    }
   | {
       authType: "authorization_code";
       clientId: string;

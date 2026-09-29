@@ -89,8 +89,8 @@ service /api/v1 on inspectorListener {
         mcp:ListToolsResult|error result = trap mcpClient->listTools();
         restoreConnectedState(session);
         if result is error {
-            appendLifecycleEvent(connectionId, "tools.list_failed", "connected", eventMessage = result.message());
-            return <http:BadGateway>{body: <ApiError>{message: string `tools/list failed: ${result.message()}`}};
+            appendLifecycleEvent(connectionId, "tools.list_failed", "connected", eventMessage = errorChainMessage(result));
+            return <http:BadGateway>{body: <ApiError>{message: string `tools/list failed: ${errorChainMessage(result)}`}};
         }
         session.cacheTools(result);
         return result;
@@ -111,8 +111,8 @@ service /api/v1 on inspectorListener {
         mcp:CallToolResult|error result = trap mcpClient->callTool(params);
         restoreConnectedState(session);
         if result is error {
-            appendLifecycleEvent(connectionId, "tools.call_failed", "connected", eventMessage = result.message());
-            return <http:BadGateway>{body: <ApiError>{message: string `tools/call failed: ${result.message()}`}};
+            appendLifecycleEvent(connectionId, "tools.call_failed", "connected", eventMessage = errorChainMessage(result));
+            return <http:BadGateway>{body: <ApiError>{message: string `tools/call failed: ${errorChainMessage(result)}`}};
         }
         return result;
     }
@@ -134,6 +134,7 @@ service /api/v1 on inspectorListener {
         }
         session.setState("closed");
         appendLifecycleEvent(connectionId, "connection.closed", "closed");
+        idTokenStore.remove(connectionId);
         _ = connectionRegistry.removeOwned(browserSessionId, connectionId);
         eventStore.close(connectionId);
         _ = start expireEventJournal(connectionId);

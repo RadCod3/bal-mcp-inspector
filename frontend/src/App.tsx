@@ -32,6 +32,7 @@ import type {
   ConnectionState,
   ConnectionStatus,
   CreateConnectionRequest,
+  IdentityProviderSettings,
   InspectorEvent,
   McpTool,
   ProtocolMode,
@@ -71,22 +72,21 @@ const EVENT_TYPES = [
   "tools.call_failed",
 ];
 
-type AuthType = "none" | "authorization_code" | "client_credentials" |
-  "cimd_authorization_code" | "cimd_client_credentials";
+type AuthType = "none" | "authorization_code" | "client_credentials" | "identity_assertion" |
+  "cimd_authorization_code" | "cimd_client_credentials" | "cimd_identity_assertion";
 
 // The form asks two questions, who is being authorized and how the client is registered, and each answer
 // pair maps to one AuthType. The form still stores the AuthType so remembered settings keep loading.
-type Grant = "none" | "authorization_code" | "client_credentials";
+type Grant = "none" | "authorization_code" | "client_credentials" | "identity_assertion";
 type Registration = "preregistered" | "cimd";
 
 function grantOf(authType: AuthType): Grant {
-  if (authType === "authorization_code" || authType === "cimd_authorization_code") return "authorization_code";
-  if (authType === "client_credentials" || authType === "cimd_client_credentials") return "client_credentials";
-  return "none";
+  if (authType === "none") return "none";
+  return authType.startsWith("cimd_") ? authType.slice("cimd_".length) as Grant : authType as Grant;
 }
 
 function registrationOf(authType: AuthType): Registration {
-  return authType === "cimd_authorization_code" || authType === "cimd_client_credentials" ? "cimd" : "preregistered";
+  return authType.startsWith("cimd_") ? "cimd" : "preregistered";
 }
 
 function authTypeFor(grant: Grant, registration: Registration): AuthType {
@@ -105,7 +105,16 @@ interface ConnectionForm {
   scopes: string;
   tokenAuthMethod: SecretMethod;
   cimdProfile: CimdProfile;
+  // The enterprise Identity Provider of an enterprise sign-in connection
+  idpIssuer: string;
+  idpClientId: string;
+  idpClientSecret: string;
+  idpAuthMethod: IdpAuthMethod;
+  idpRedirectUri: string;
+  idpScopes: string;
 }
+
+type IdpAuthMethod = SecretMethod | "none";
 
 // In dev, callbacks go straight to the local backend; in deployments, nginx proxies them from this origin.
 const CALLBACK_ORIGIN = import.meta.env.DEV ? "http://localhost:8080" : window.location.origin;
@@ -122,19 +131,58 @@ const initialForm: ConnectionForm = {
   scopes: "",
   tokenAuthMethod: "client_secret_basic",
   cimdProfile: "none",
+  idpIssuer: "",
+  idpClientId: "",
+  idpClientSecret: "",
+  idpAuthMethod: "client_secret_post",
+  idpRedirectUri: STANDARD_CALLBACK_URL,
+  idpScopes: "openid",
 };
 
 function clearedSecrets(form: ConnectionForm): ConnectionForm {
   return {
     ...form,
     clientSecret: "",
+    idpClientSecret: "",
+  };
+}
+
+function splitScopes(value: string) {
+  return value.split(/[\s,]+/).map((scope) => scope.trim()).filter(Boolean);
+}
+
+function identityProviderOf(form: ConnectionForm): IdentityProviderSettings {
+  return {
+    issuer: form.idpIssuer,
+    clientId: form.idpClientId,
+    ...(form.idpAuthMethod === "none"
+      ? {}
+      : { clientAuth: { authMethod: form.idpAuthMethod, clientSecret: form.idpClientSecret } }),
+    redirectUri: form.idpRedirectUri,
+    loginScopes: splitScopes(form.idpScopes),
   };
 }
 
 function connectionRequest(form: ConnectionForm): CreateConnectionRequest {
-  const scopes = form.scopes.split(/[\s,]+/).map((scope) => scope.trim()).filter(Boolean);
+  const scopes = splitScopes(form.scopes);
   let auth: AuthConfig;
-  if (form.authType === "authorization_code") {
+  if (form.authType === "identity_assertion") {
+    auth = {
+      authType: "identity_assertion",
+      clientId: form.clientId,
+      issuer: form.issuer,
+      clientAuth: {authMethod: form.tokenAuthMethod, clientSecret: form.clientSecret},
+      identityProvider: identityProviderOf(form),
+      scopes,
+    };
+  } else if (form.authType === "cimd_identity_assertion") {
+    auth = {
+      authType: "cimd_identity_assertion",
+      profile: form.cimdProfile,
+      identityProvider: identityProviderOf(form),
+      scopes,
+    };
+  } else if (form.authType === "authorization_code") {
     auth = {
       authType: "authorization_code",
       clientId: form.clientId,
@@ -182,7 +230,7 @@ function readAllSettings(): Record<string, ConnectionForm> {
 
 function loadSettings(connectionId: string): ConnectionForm | null {
   const stored = readAllSettings()[connectionId];
-  return stored ? { ...initialForm, ...stored, clientSecret: "" } : null;
+  return stored ? { ...initialForm, ...stored, clientSecret: "", idpClientSecret: "" } : null;
 }
 
 function saveSettings(connectionId: string, form: ConnectionForm) {
@@ -206,7 +254,22 @@ const grantOptions: { value: Grant; label: string; hint: string; term?: string }
   { value: "none", label: "None", hint: "Connect without a token" },
   { value: "authorization_code", label: "User sign-in", hint: "Approve access in a browser", term: "authorization code" },
   { value: "client_credentials", label: "Machine-to-machine", hint: "No user involved", term: "client credentials" },
+  {
+    value: "identity_assertion",
+    label: "Enterprise sign-in",
+    hint: "Sign in with your organization's identity provider",
+    term: "ID-JAG",
+  },
 ];
+
+const idpAuthMethodLabels: Record<IdpAuthMethod, string> = {
+  none: "None (public client)",
+  client_secret_basic: "HTTP Basic",
+  client_secret_post: "Request body",
+};
+
+const idpAuthMethodOptions = (Object.keys(idpAuthMethodLabels) as IdpAuthMethod[])
+  .map((value) => ({ value, label: idpAuthMethodLabels[value] }));
 
 const registrationOptions: { value: Registration; label: string; hint: string }[] = [
   {
@@ -274,13 +337,19 @@ interface SettingChange {
 
 type SettingField = [string, (form: ConnectionForm, profiles: CimdProfileInfo[]) => string, (authType: AuthType) => boolean];
 
-const isPreregistered = (type: AuthType) => type === "authorization_code" || type === "client_credentials";
-const isCimdType = (type: AuthType) => type === "cimd_authorization_code" || type === "cimd_client_credentials";
+const isPreregistered = (type: AuthType) => type !== "none" && !type.startsWith("cimd_");
+const isCimdType = (type: AuthType) => type.startsWith("cimd_");
+const isIdentityAssertion = (type: AuthType) => grantOf(type) === "identity_assertion";
 
 const settingFields: SettingField[] = [
   ["Server URL", (form) => form.serverUrl, () => true],
   ["Protocol", (form) => form.protocolMode, () => true],
   ["Authorization", (form) => grantOptions.find((option) => option.value === grantOf(form.authType))!.label, () => true],
+  ["Identity provider issuer", (form) => form.idpIssuer, isIdentityAssertion],
+  ["Identity provider client ID", (form) => form.idpClientId, isIdentityAssertion],
+  ["Identity provider authentication", (form) => idpAuthMethodLabels[form.idpAuthMethod], isIdentityAssertion],
+  ["Sign-in redirect URI", (form) => form.idpRedirectUri, isIdentityAssertion],
+  ["Sign-in scopes", (form) => form.idpScopes.trim(), isIdentityAssertion],
   ["Client registration", (form) => registrationOptions.find((option) => option.value === registrationOf(form.authType))!.label, (type) => type !== "none"],
   ["Issuer", (form) => form.issuer, isPreregistered],
   ["Client ID", (form) => form.clientId, isPreregistered],
@@ -554,7 +623,11 @@ export default function App() {
           "tools.list_failed": "connected",
           "tools.call_failed": "connected",
         };
-        const nextState = stateByEvent[event.eventType];
+        // Enterprise sign-in also reports the Identity Provider's ID token and ID-JAG as acquired tokens;
+        // only the authorization server's access token means the client is connected.
+        const identityProviderToken = event.eventType === "oauth.token_acquired" &&
+          event.eventTarget === "identity_provider";
+        const nextState = identityProviderToken ? undefined : stateByEvent[event.eventType];
         if (nextState) {
           setStatus((current) => current ? {
             ...current,
@@ -983,6 +1056,7 @@ function ConnectionPanel({
 }) {
   // A custom redirect URI opens straight into editing; the default one only needs copying.
   const [editingRedirect, setEditingRedirect] = useState(form.redirectUri !== STANDARD_CALLBACK_URL);
+  const [editingIdpRedirect, setEditingIdpRedirect] = useState(form.idpRedirectUri !== STANDARD_CALLBACK_URL);
   // Advanced starts open only when it holds a non-default choice; after that the user controls it.
   const [advancedOpen] = useState(form.tokenAuthMethod !== "client_secret_basic");
   // Remembers the confidential profile while a public client is selected, so switching back restores it.
@@ -1085,6 +1159,65 @@ function ConnectionPanel({
 
         {grant !== "none" && (
           <div className="oauth-fields">
+            {grant === "identity_assertion" && (
+              <>
+                <div className="form-section-heading">
+                  <h3>Identity provider</h3>
+                  <p>Where the user signs in. The backend then exchanges the ID token for an ID-JAG with this provider.</p>
+                </div>
+                <label className="field">
+                  <span>Issuer</span>
+                  <input type="url" required value={form.idpIssuer} onChange={(e) => update("idpIssuer", e.target.value)} placeholder="https://idp.example.com" />
+                  <small className="field-hint">The identity provider's issuer URL. Its OpenID Connect metadata is discovered from it.</small>
+                </label>
+                <div className="field-grid">
+                  <label className="field"><span>Client ID</span><input required value={form.idpClientId} onChange={(e) => update("idpClientId", e.target.value)} placeholder="mcp-inspector" autoComplete="off" /></label>
+                  {form.idpAuthMethod !== "none" && (
+                    <label className="field"><span>Client secret</span><input type="password" required value={form.idpClientSecret} onChange={(e) => update("idpClientSecret", e.target.value)} placeholder={mode === "edit" ? "Re-enter to reconnect, not persisted" : "Not persisted"} autoComplete="new-password" /></label>
+                  )}
+                </div>
+                <div className="field">
+                  <span id="idp-auth-label">Client authentication</span>
+                  <Segmented
+                    labelId="idp-auth-label"
+                    options={idpAuthMethodOptions}
+                    value={form.idpAuthMethod}
+                    onChange={(value) => update("idpAuthMethod", value)}
+                  />
+                  <small className="field-hint">
+                    {form.idpAuthMethod === "none"
+                      ? "The client sends only its client ID, for an identity provider registration without a secret."
+                      : `The client secret is sent ${form.idpAuthMethod === "client_secret_basic" ? "in the Authorization header (client_secret_basic)" : "as form fields in the request body (client_secret_post)"} for sign-in and the ID-JAG exchange.`}
+                  </small>
+                </div>
+                {editingIdpRedirect ? (
+                  <label className="field">
+                    <span>Sign-in redirect URI <em>must match one registered with your identity provider</em></span>
+                    <input type="url" required value={form.idpRedirectUri} onChange={(e) => update("idpRedirectUri", e.target.value)} />
+                  </label>
+                ) : (
+                  <div className="field">
+                    <div className="value-list">
+                      <ValueRow label="Sign-in redirect URI" value={form.idpRedirectUri}>
+                        <button type="button" className="copy-button" onClick={() => setEditingIdpRedirect(true)}>
+                          <Pencil size={13} /><span>Change</span>
+                        </button>
+                      </ValueRow>
+                    </div>
+                    <small className="field-hint">Register this redirect URI with your identity provider.</small>
+                  </div>
+                )}
+                <label className="field">
+                  <span>Sign-in scopes <em>separated by spaces or commas</em></span>
+                  <input value={form.idpScopes} onChange={(e) => update("idpScopes", e.target.value)} placeholder="openid email" />
+                  <small className="field-hint">Requested when the user signs in. Include openid to receive an ID token.</small>
+                </label>
+                <div className="form-section-heading">
+                  <h3>MCP authorization server</h3>
+                  <p>The client that redeems the ID-JAG for an MCP access token. The authorization server is discovered from the MCP server.</p>
+                </div>
+              </>
+            )}
             <div className="field">
               <span id="registration-label">Client registration</span>
               <Segmented

@@ -82,8 +82,19 @@ The inspector offers this OAuth client matrix:
 | CIMD with inline `jwks` | Authorization code or client credentials | `private_key_jwt` or `self_signed_tls_client_auth` |
 | CIMD with `jwks_uri` | Authorization code or client credentials | `private_key_jwt` or `self_signed_tls_client_auth` |
 | CIMD public client | Authorization code | `none` |
+| Pre-registered or any CIMD profile | Enterprise sign-in (ID-JAG) | As above, at the MCP authorization server |
 
 The browser chooses only a CIMD profile. The RS256 signing key and the mutual TLS key remain on the backend; metadata endpoints expose only public JWKs and the certificate.
+
+## Enterprise sign-in (ID-JAG)
+
+Enterprise sign-in implements MCP [Enterprise-Managed Authorization](https://github.com/modelcontextprotocol/ext-auth/blob/main/specification/stable/enterprise-managed-authorization.mdx). The form takes two registrations: the inspector's client at the enterprise identity provider, and its client at the MCP server's authorization server, which the MCP client discovers from the server's protected resource metadata. The flow has three legs, and the request log shows every request of each:
+
+1. **Sign-in at the identity provider.** When the MCP client first needs an access token, the backend starts an OpenID Connect authorization code sign-in with PKCE and shows its URL, like user sign-in. The identity provider redirects to the sign-in redirect URI, which defaults to the backend's OAuth callback and must be registered with the identity provider. The backend exchanges the code for the user's ID token and reuses it until it expires.
+2. **ID-JAG exchange at the identity provider.** The backend exchanges the ID token for an ID-JAG for the discovered authorization server (`mcp:exchangeIdTokenForIdJag`, RFC 8693).
+3. **Access token at the MCP authorization server.** The MCP client presents the ID-JAG (RFC 7523) and uses the returned access token.
+
+Identity provider requests appear under the **Identity provider** target. Authorization codes, PKCE verifiers, client secrets, the ID token, and the ID-JAG are redacted from the log.
 
 ## Session behavior
 

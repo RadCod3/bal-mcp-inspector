@@ -129,7 +129,7 @@ final ConnectionRegistry connectionRegistry = new;
 
 isolated function createAuthorizationCodeOAuthConfig(string connectionId, AuthorizationCodeAuthConfig authConfig)
         returns mcp:OAuthConfig {
-    mcp:PreRegisteredAuthorizationCodeConfig clientConfig = {
+    mcp:PreRegisteredClientConfig clientConfig = {
         clientId: authConfig.clientId,
         issuer: authConfig.issuer,
         clientAuth: {
@@ -157,7 +157,7 @@ isolated function createAuthorizationCodeOAuthConfig(string connectionId, Author
 isolated function createCimdAuthorizationCodeOAuthConfig(string connectionId,
         CimdAuthorizationCodeAuthConfig authConfig) returns mcp:OAuthConfig|error {
     CimdProfile profile = authConfig.profile;
-    mcp:CimdAuthorizationCodeConfig clientConfig = {url: cimdProfileUrl(profile)};
+    mcp:CimdClientConfig clientConfig = {url: cimdProfileUrl(profile)};
     if profile != "none" {
         clientConfig.clientAuth = check createCimdClientAuthentication(profile);
     }
@@ -207,6 +207,48 @@ isolated function createCimdClientCredentialsOAuthConfig(CimdClientCredentialsAu
     };
 }
 
+isolated function identityAssertionProvider(string connectionId, IdentityProviderSettings settings)
+        returns mcp:IdentityAssertionProvider {
+    final readonly & IdentityProviderSettings pinnedSettings = settings.cloneReadOnly();
+    return isolated function(mcp:IdentityAssertionContext context) returns string|error {
+        return provideIdJag(connectionId, pinnedSettings, context);
+    };
+}
+
+isolated function createIdentityAssertionOAuthConfig(string connectionId, IdentityAssertionAuthConfig authConfig)
+        returns mcp:OAuthConfig {
+    return {
+        grant: {
+            clientConfig: {
+                clientId: authConfig.clientId,
+                issuer: authConfig.issuer,
+                clientAuth: {
+                    clientSecret: authConfig.clientAuth.clientSecret,
+                    authMethod: authConfig.clientAuth.authMethod
+                }
+            },
+            assertionProvider: identityAssertionProvider(connectionId, authConfig.identityProvider)
+        },
+        scopes: authConfig.scopes
+    };
+}
+
+isolated function createCimdIdentityAssertionOAuthConfig(string connectionId,
+        CimdIdentityAssertionAuthConfig authConfig) returns mcp:OAuthConfig|error {
+    CimdProfile profile = authConfig.profile;
+    mcp:CimdClientConfig clientConfig = {url: cimdProfileUrl(profile)};
+    if profile != "none" {
+        clientConfig.clientAuth = check createCimdClientAuthentication(profile);
+    }
+    return {
+        grant: {
+            clientConfig,
+            assertionProvider: identityAssertionProvider(connectionId, authConfig.identityProvider)
+        },
+        scopes: authConfig.scopes
+    };
+}
+
 isolated function createConnection(string browserSessionId, CreateConnectionRequest request)
         returns CreateConnectionResponse|error {
     string connectionId = uuid:createType4AsString();
@@ -235,6 +277,16 @@ isolated function createConnection(string browserSessionId, CreateConnectionRequ
         mcpClient = check new (request.serverUrl, protocolMode = request.protocolMode, auth = oauthConfig,
             observer = observer
         );
+    } else if selectedAuth is IdentityAssertionAuthConfig {
+        mcp:OAuthConfig oauthConfig = createIdentityAssertionOAuthConfig(connectionId, selectedAuth);
+        mcpClient = check new (request.serverUrl, protocolMode = request.protocolMode, auth = oauthConfig,
+            observer = observer
+        );
+    } else if selectedAuth is CimdIdentityAssertionAuthConfig {
+        mcp:OAuthConfig oauthConfig = check createCimdIdentityAssertionOAuthConfig(connectionId, selectedAuth);
+        mcpClient = check new (request.serverUrl, protocolMode = request.protocolMode, auth = oauthConfig,
+            observer = observer
+        );
     } else {
         return error("Unsupported authorization configuration");
     }
@@ -255,7 +307,7 @@ isolated function connect(ConnectionSession session) {
             return;
         }
         oauthCallbackBroker.cancel(session.connectionId);
-        string message = result.message();
+        string message = errorChainMessage(result);
         session.setState("failed", message);
         appendLifecycleEvent(session.connectionId, "connection.failed", "failed", eventMessage = message);
         return;
@@ -265,4 +317,19 @@ isolated function connect(ConnectionSession session) {
     }
     session.setConnected(result);
     appendLifecycleEvent(session.connectionId, "connection.connected", "connected");
+}
+
+// Joins an error's message with those of its causes, so a wrapped failure such as an Identity Provider
+// rejection is shown with its reason. A cause already quoted in the message before it is skipped.
+isolated function errorChainMessage(error err) returns string {
+    string message = err.message();
+    error? cause = err.cause();
+    while cause is error {
+        string causeMessage = cause.message();
+        if !message.includes(causeMessage) {
+            message += " " + causeMessage;
+        }
+        cause = cause.cause();
+    }
+    return message;
 }
