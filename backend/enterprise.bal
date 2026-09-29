@@ -193,8 +193,8 @@ isolated function getJson(string connectionId, string targetUrl) returns json|er
     return body.fromJsonString();
 }
 
-// Posts a token request with the Identity Provider client's authentication. The response body carries
-// tokens, so only its status and headers are recorded.
+// Posts a token request with the Identity Provider client's authentication. Its events match the MCP
+// client's: the form body with credentials redacted, and the response with its tokens redacted.
 isolated function postTokenForm(string connectionId, string tokenEndpoint, map<string> form,
         readonly & IdentityProviderSettings settings) returns map<json>|error {
     map<string> params = form.clone();
@@ -210,12 +210,17 @@ isolated function postTokenForm(string connectionId, string tokenEndpoint, map<s
         headers["Authorization"] = "Basic " + credentials.toBytes().toBase64();
     }
 
-    map<string> recordedParams = {};
+    // The redaction marker is left unencoded so it stays readable.
+    string[] recordedPairs = [];
     foreach [string, string] [name, value] in params.entries() {
-        recordedParams[name] = name == "code" || name == "code_verifier" || name == "client_secret" ? REDACTED : value;
+        boolean secret = name == "code" || name == "code_verifier" || name == "client_secret";
+        recordedPairs.push(name + "=" + (secret ? REDACTED : check encodeValue(value)));
     }
+    // The content type goes to `post` separately, so it is added to the recorded headers here.
+    map<string> recordedHeaders = headers.clone();
+    recordedHeaders["Content-Type"] = "application/x-www-form-urlencoded";
     appendIdentityProviderEvent(connectionId, "http.request", tokenEndpoint, "POST",
-        eventHeaders = redactedHeaders(headers), eventBody = recordedParams.toJsonString(),
+        eventHeaders = redactedHeaders(recordedHeaders), eventBody = string:'join("&", ...recordedPairs),
         eventMessage = "OpenID Connect token request");
     http:Client tokenClient = check new (tokenEndpoint);
     http:Response|error response = tokenClient->post("", check encodeForm(params), headers,
@@ -226,8 +231,16 @@ isolated function postTokenForm(string connectionId, string tokenEndpoint, map<s
         return response;
     }
     appendIdentityProviderEvent(connectionId, "http.response", tokenEndpoint, "POST", response.statusCode,
-        responseHeaders(response), eventMessage = "Token response body redacted");
-    json|error payload = response.getJsonPayload();
+        responseHeaders(response));
+    string|error responseText = response.getTextPayload();
+    json|error payload = responseText is string ? responseText.fromJsonString() : responseText;
+    string? recordedBody = payload is map<json> ? redactedTokenResponse(payload).toJsonString()
+        // A body that isn't a JSON object is recorded only for an error, which carries no tokens.
+        : response.statusCode != http:STATUS_OK && responseText is string && responseText != "" ? responseText : ();
+    if recordedBody is string {
+        appendIdentityProviderEvent(connectionId, "http.body", tokenEndpoint, "POST", response.statusCode,
+            eventBody = recordedBody, eventMessage = "OpenID Connect token response, tokens redacted");
+    }
     if response.statusCode != http:STATUS_OK {
         string reason = payload is map<json> ? (payload["error"] ?: "").toString() : "";
         return error(string `The Identity Provider token endpoint returned ${response.statusCode}` +
@@ -263,6 +276,16 @@ isolated function responseHeaders(http:Response response) returns map<string|str
         }
     }
     return redactedHeaders(headers);
+}
+
+isolated function redactedTokenResponse(map<json> tokenResponse) returns map<json> {
+    map<json> redacted = {};
+    foreach [string, json] [name, value] in tokenResponse.entries() {
+        string lowerName = name.toLowerAscii();
+        redacted[name] = lowerName == "id_token" || lowerName == "access_token" || lowerName == "refresh_token"
+            ? REDACTED : value;
+    }
+    return redacted;
 }
 
 isolated function redactedHeaders(map<string|string[]> headers) returns map<string|string[]> {

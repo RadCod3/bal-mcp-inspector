@@ -22,6 +22,7 @@ import { FormEvent, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo,
 import { api } from "./api";
 import { CodeBlock, CopyButton } from "./components/CodeBlock";
 import { RequestLog } from "./components/RequestLog";
+import type { ExportContext } from "./exportLog";
 import { hostOf } from "./requests";
 import { routePath, useRoute, type View } from "./router";
 import type {
@@ -376,6 +377,61 @@ const stateLabels: Record<ConnectionState, string> = {
   closed: "Closed",
 };
 
+// What an exported log says about the connection. Settings come from this browser, so a connection
+// made elsewhere exports without its auth details.
+function exportContextFor(
+  connectionId: string,
+  status: ConnectionStatus | null,
+  settings: ConnectionForm | null,
+  profiles: CimdProfileInfo[],
+): ExportContext {
+  const fields: [string, string][] = [["Connection", connectionId]];
+  if (status) fields.push(["MCP server", status.serverUrl]);
+  const serverInfo = status?.connectionInfo?.serverInfo;
+  if (serverInfo) fields.push(["Server", `${serverInfo.name} ${serverInfo.version}`]);
+  if (status?.connectionInfo?.protocolVersion) fields.push(["Protocol version", status.connectionInfo.protocolVersion]);
+  if (!settings) return { connectionId, fields: [...fields, ["Authorization", "unknown (not created in this browser)"]] };
+
+  fields.push(["Protocol mode", settings.protocolMode]);
+  const { auth } = connectionRequest(settings);
+  if (auth.authType === "none") return { connectionId, fields: [...fields, ["Authorization", "none"]] };
+
+  // Enterprise sign-in redeems an ID-JAG at the resource authorization server (jwt-bearer grant).
+  const grant = grantOf(settings.authType);
+  const grantLabel = grant === "identity_assertion" ? "enterprise-managed authorization (ID-JAG)" : grant;
+  if (auth.authType === "cimd_authorization_code" || auth.authType === "cimd_client_credentials" ||
+      auth.authType === "cimd_identity_assertion") {
+    const profile = profiles.find((item) => item.id === auth.profile);
+    fields.push(
+      ["Authorization", `${grantLabel}, Client ID Metadata Document (profile ${auth.profile})`],
+      ["Client ID", profile?.url ?? "unknown"],
+      ["Client authentication", profile?.tokenEndpointAuthMethod ?? "unknown"],
+    );
+    if (profile?.certificateThumbprint) fields.push(["Client cert x5t#S256", profile.certificateThumbprint]);
+    if (grant === "authorization_code" && profile) fields.push(["Redirect URI", profile.redirectUri]);
+  } else {
+    fields.push(
+      ["Authorization", `${grantLabel}, pre-registered client`],
+      ["Client ID", auth.clientId],
+      ["Client authentication", auth.clientAuth.authMethod],
+    );
+    if (auth.issuer) fields.push(["Issuer", auth.issuer]);
+    if (auth.authType === "authorization_code") fields.push(["Redirect URI", auth.redirectUri]);
+  }
+  if (auth.authType === "identity_assertion" || auth.authType === "cimd_identity_assertion") {
+    const idp = auth.identityProvider;
+    fields.push(
+      ["IdP issuer", idp.issuer],
+      ["IdP client ID", idp.clientId],
+      ["IdP client auth", idp.clientAuth?.authMethod ?? "none"],
+      ["IdP redirect URI", idp.redirectUri],
+      ["IdP sign-in scopes", idp.loginScopes.join(" ")],
+    );
+  }
+  fields.push(["Scopes", auth.scopes.join(" ") || "(none requested)"]);
+  return { connectionId, fields };
+}
+
 function getBrowserSessionId() {
   const existing = localStorage.getItem(SESSION_KEY);
   if (existing) return existing;
@@ -513,9 +569,13 @@ export default function App() {
     });
   }, [status]);
 
-  // Profiles are fetched each time a form opens, so a failed load is retried by reopening it.
+  const connectionSettings = useMemo(() => connectionId ? loadSettings(connectionId) : null, [connectionId]);
+  const cimdConnection = Boolean(connectionSettings && registrationOf(connectionSettings.authType) === "cimd");
+
+  // Profiles are fetched each time a form opens, so a failed load is retried by reopening it. A CIMD
+  // connection needs them too, for the client ID and certificate its exported logs name.
   useEffect(() => {
-    if (!formOpen) return;
+    if (!formOpen && !cimdConnection) return;
     let active = true;
     api.listCimdProfiles()
       .then((profiles) => {
@@ -528,7 +588,7 @@ export default function App() {
         setCimdProfilesError(error instanceof Error ? error.message : "Could not load CIMD profiles");
       });
     return () => { active = false; };
-  }, [formOpen]);
+  }, [cimdConnection, formOpen]);
 
   useEffect(() => {
     setConfirmingEdit(false);
@@ -998,7 +1058,11 @@ export default function App() {
               </nav>
 
               {view === "requests" ? (
-                <RequestLog events={events} onClear={() => setEvents([])} />
+                <RequestLog
+                  events={events}
+                  context={exportContextFor(connectionId, status, connectionSettings, cimdProfiles)}
+                  onClear={() => setEvents([])}
+                />
               ) : (
                 <ToolsPanel
                   connected={connected}

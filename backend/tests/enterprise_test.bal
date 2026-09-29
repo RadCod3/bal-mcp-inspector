@@ -120,6 +120,7 @@ function testIdentityProviderSignIn() returns error? {
     boolean metadataRequested = false;
     boolean tokenRequested = false;
     boolean idTokenAcquired = false;
+    boolean tokenResponseRecorded = false;
     foreach InspectorEvent event in events {
         if event.eventTarget != "identity_provider" {
             continue;
@@ -133,6 +134,17 @@ function testIdentityProviderSignIn() returns error? {
             test:assertFalse(body.includes(MOCK_IDP_CODE));
             test:assertFalse(body.includes("idp-secret"));
             test:assertFalse(body.includes(tokenRequest["code_verifier"] ?: "missing"));
+            test:assertEquals(event.eventHeaders["Content-Type"], "application/x-www-form-urlencoded");
+            // Recorded form-encoded as sent, with the redaction markers left readable.
+            test:assertTrue(body.includes("grant_type=authorization_code"));
+            test:assertTrue(body.includes("code=[REDACTED]"));
+        }
+        if event.eventType == "http.body" && event.httpMethod == "POST" {
+            tokenResponseRecorded = true;
+            map<json> response = check (check (event.eventBody ?: "").fromJsonString()).ensureType();
+            test:assertEquals(response["id_token"], REDACTED);
+            test:assertEquals(response["access_token"], REDACTED);
+            test:assertEquals(response["token_type"], "Bearer");
         }
         if event.eventType == "oauth.token_acquired" {
             idTokenAcquired = true;
@@ -140,6 +152,7 @@ function testIdentityProviderSignIn() returns error? {
     }
     test:assertTrue(metadataRequested);
     test:assertTrue(tokenRequested);
+    test:assertTrue(tokenResponseRecorded);
     test:assertTrue(idTokenAcquired);
     eventStore.remove(connectionId);
 }
