@@ -396,11 +396,14 @@ function exportContextFor(
   const { auth } = connectionRequest(settings);
   if (auth.authType === "none") return { connectionId, fields: [...fields, ["Authorization", "none"]] };
 
-  const grant = auth.authType.endsWith("client_credentials") ? "client_credentials" : "authorization_code";
-  if (auth.authType === "cimd_authorization_code" || auth.authType === "cimd_client_credentials") {
+  // Enterprise sign-in redeems an ID-JAG at the resource authorization server (jwt-bearer grant).
+  const grant = grantOf(settings.authType);
+  const grantLabel = grant === "identity_assertion" ? "enterprise-managed authorization (ID-JAG)" : grant;
+  if (auth.authType === "cimd_authorization_code" || auth.authType === "cimd_client_credentials" ||
+      auth.authType === "cimd_identity_assertion") {
     const profile = profiles.find((item) => item.id === auth.profile);
     fields.push(
-      ["Authorization", `${grant}, Client ID Metadata Document (profile ${auth.profile})`],
+      ["Authorization", `${grantLabel}, Client ID Metadata Document (profile ${auth.profile})`],
       ["Client ID", profile?.url ?? "unknown"],
       ["Client authentication", profile?.tokenEndpointAuthMethod ?? "unknown"],
     );
@@ -408,12 +411,22 @@ function exportContextFor(
     if (grant === "authorization_code" && profile) fields.push(["Redirect URI", profile.redirectUri]);
   } else {
     fields.push(
-      ["Authorization", `${grant}, pre-registered client`],
+      ["Authorization", `${grantLabel}, pre-registered client`],
       ["Client ID", auth.clientId],
       ["Client authentication", auth.clientAuth.authMethod],
     );
     if (auth.issuer) fields.push(["Issuer", auth.issuer]);
     if (auth.authType === "authorization_code") fields.push(["Redirect URI", auth.redirectUri]);
+  }
+  if (auth.authType === "identity_assertion" || auth.authType === "cimd_identity_assertion") {
+    const idp = auth.identityProvider;
+    fields.push(
+      ["IdP issuer", idp.issuer],
+      ["IdP client ID", idp.clientId],
+      ["IdP client auth", idp.clientAuth?.authMethod ?? "none"],
+      ["IdP redirect URI", idp.redirectUri],
+      ["IdP sign-in scopes", idp.loginScopes.join(" ")],
+    );
   }
   fields.push(["Scopes", auth.scopes.join(" ") || "(none requested)"]);
   return { connectionId, fields };
