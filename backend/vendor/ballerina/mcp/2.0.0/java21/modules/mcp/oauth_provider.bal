@@ -272,7 +272,7 @@ isolated class ClientOAuthProvider {
             notifyClientObserver(self.observer, {
                 eventType: TOKEN_ACQUIRED,
                 eventTarget: AUTHORIZATION_SERVER,
-                eventUrl: context.metadata.token_endpoint,
+                eventUrl: selectTokenEndpoint(grant.clientConfig.clientAuth, context.metadata),
                 eventMessage: "Client credentials token acquired"
             });
             return;
@@ -288,7 +288,7 @@ isolated class ClientOAuthProvider {
                 notifyClientObserver(self.observer, {
                     eventType: TOKEN_ACQUIRED,
                     eventTarget: AUTHORIZATION_SERVER,
-                    eventUrl: context.metadata.token_endpoint,
+                    eventUrl: selectTokenEndpoint(grantClientAuth(grant), context.metadata),
                     eventMessage: "Access token refreshed"
                 });
                 return;
@@ -340,7 +340,7 @@ isolated class ClientOAuthProvider {
         notifyClientObserver(self.observer, {
             eventType: TOKEN_ACQUIRED,
             eventTarget: AUTHORIZATION_SERVER,
-            eventUrl: context.metadata.token_endpoint,
+            eventUrl: selectTokenEndpoint(grantClientAuth(grant), context.metadata),
             eventMessage: "Authorization code token acquired"
         });
     }

@@ -26,7 +26,7 @@ import { hostOf } from "./requests";
 import { routePath, useRoute, type View } from "./router";
 import type {
   AuthConfig,
-  CimdPrivateKeyProfile,
+  CimdConfidentialProfile,
   CimdProfile,
   CimdProfileInfo,
   ConnectionState,
@@ -217,7 +217,7 @@ const registrationOptions: { value: Registration; label: string; hint: string }[
   {
     value: "cimd",
     label: "Client ID Metadata Document",
-    hint: "The inspector hosts its own client ID, so there is nothing to register. Its signing key stays on the backend.",
+    hint: "The inspector hosts its own client ID, so there is nothing to register. Its private keys stay on the backend.",
   },
 ];
 
@@ -229,19 +229,42 @@ const secretMethodLabels: Record<SecretMethod, string> = {
 const secretMethodOptions = (Object.keys(secretMethodLabels) as SecretMethod[])
   .map((value) => ({ value, label: secretMethodLabels[value] }));
 
-// A CIMD profile answers two questions: whether the client authenticates, and where a signing client's
-// public key is published.
-type CimdClientAuth = "private_key_jwt" | "none";
+// A CIMD profile answers two questions: how the client authenticates, and where a confidential
+// client's public key or certificate is published.
+type CimdClientAuth = "private_key_jwt" | "self_signed_tls_client_auth" | "none";
+type ConfidentialClientAuth = Exclude<CimdClientAuth, "none">;
+type KeyLocation = "jwks" | "jwks_uri";
 
 const cimdClientAuthOptions: { value: CimdClientAuth; label: string; hint: string }[] = [
   { value: "none", label: "None (public client)", hint: "The client doesn't authenticate at the token endpoint." },
   { value: "private_key_jwt", label: "Signed JWT", hint: "The inspector signs a JWT with its private key (private_key_jwt)." },
+  {
+    value: "self_signed_tls_client_auth",
+    label: "Mutual TLS",
+    hint: "The inspector presents a self-signed certificate in the TLS handshake (self_signed_tls_client_auth).",
+  },
 ];
 
-const keyLocationOptions: { value: CimdPrivateKeyProfile; label: string; hint: string }[] = [
-  { value: "jwks", label: "In the document", hint: "Embedded as jwks in the metadata document." },
-  { value: "jwks_uri", label: "At a JWKS URL", hint: "The metadata document's jwks_uri points to the inspector's public keys." },
-];
+function keyLocationOptions(clientAuth: ConfidentialClientAuth): { value: KeyLocation; label: string; hint: string }[] {
+  const material = clientAuth === "self_signed_tls_client_auth" ? "certificate" : "public key";
+  return [
+    { value: "jwks", label: "In the document", hint: `The ${material} is embedded as jwks in the metadata document.` },
+    { value: "jwks_uri", label: "At a JWKS URL", hint: `The metadata document's jwks_uri points to the inspector's ${material}.` },
+  ];
+}
+
+function clientAuthOf(profile: CimdProfile): CimdClientAuth {
+  if (profile === "none") return "none";
+  return profile.startsWith("mtls_") ? "self_signed_tls_client_auth" : "private_key_jwt";
+}
+
+function keyLocationOf(profile: CimdProfile): KeyLocation {
+  return profile.endsWith("jwks_uri") ? "jwks_uri" : "jwks";
+}
+
+function profileFor(clientAuth: ConfidentialClientAuth, location: KeyLocation): CimdConfidentialProfile {
+  return clientAuth === "self_signed_tls_client_auth" ? `mtls_${location}` as const : location;
+}
 
 interface SettingChange {
   label: string;
@@ -962,8 +985,9 @@ function ConnectionPanel({
   const [editingRedirect, setEditingRedirect] = useState(form.redirectUri !== STANDARD_CALLBACK_URL);
   // Advanced starts open only when it holds a non-default choice; after that the user controls it.
   const [advancedOpen] = useState(form.tokenAuthMethod !== "client_secret_basic");
-  // Remembers the key location while a public client is selected, so switching back restores it.
-  const [keyProfile, setKeyProfile] = useState<CimdPrivateKeyProfile>(form.cimdProfile === "jwks_uri" ? "jwks_uri" : "jwks");
+  // Remembers the confidential profile while a public client is selected, so switching back restores it.
+  const [confidentialProfile, setConfidentialProfile] = useState<CimdConfidentialProfile>(
+    form.cimdProfile === "none" ? "jwks" : form.cimdProfile);
   const update = <K extends keyof ConnectionForm>(key: K, value: ConnectionForm[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
 
@@ -975,16 +999,26 @@ function ConnectionPanel({
     setForm((current) => ({
       ...current,
       authType: authTypeFor(nextGrant, nextRegistration),
-      // A public client can't use client credentials, so machine-to-machine goes back to signing.
-      cimdProfile: nextGrant === "client_credentials" && current.cimdProfile === "none" ? keyProfile : current.cimdProfile,
+      // A public client can't use client credentials, so machine-to-machine goes back to a confidential client.
+      cimdProfile: nextGrant === "client_credentials" && current.cimdProfile === "none" ? confidentialProfile : current.cimdProfile,
     }));
   };
 
-  const clientAuth: CimdClientAuth = form.cimdProfile === "none" ? "none" : "private_key_jwt";
-  const selectKeyProfile = (profile: CimdPrivateKeyProfile) => {
-    setKeyProfile(profile);
+  const clientAuth = clientAuthOf(form.cimdProfile);
+  const selectConfidentialProfile = (profile: CimdConfidentialProfile) => {
+    setConfidentialProfile(profile);
     update("cimdProfile", profile);
   };
+  const selectClientAuth = (value: CimdClientAuth) => {
+    if (value === "none") {
+      update("cimdProfile", "none");
+    } else {
+      selectConfidentialProfile(profileFor(value, keyLocationOf(confidentialProfile)));
+    }
+  };
+  const availableClientAuthOptions = grant === "client_credentials"
+    ? cimdClientAuthOptions.filter((option) => option.value !== "none")
+    : cimdClientAuthOptions;
   const selectedCimdProfile = cimdProfiles.find((profile) => profile.id === form.cimdProfile &&
     (grant !== "client_credentials" || profile.supportsClientCredentials));
 
@@ -1066,27 +1100,28 @@ function ConnectionPanel({
               <>
                 <div className="field">
                   <span id="client-auth-label">Client authentication</span>
-                  {grant === "client_credentials" ? (
-                    <small className="field-hint">
-                      Machine-to-machine clients always sign a JWT with the inspector's private key (private_key_jwt).
-                    </small>
-                  ) : (
-                    <>
-                      <Segmented
-                        labelId="client-auth-label"
-                        options={cimdClientAuthOptions}
-                        value={clientAuth}
-                        onChange={(value) => update("cimdProfile", value === "none" ? "none" : keyProfile)}
-                      />
-                      <small className="field-hint">{cimdClientAuthOptions.find((option) => option.value === clientAuth)!.hint}</small>
-                    </>
-                  )}
+                  <Segmented
+                    labelId="client-auth-label"
+                    options={availableClientAuthOptions}
+                    value={clientAuth}
+                    onChange={selectClientAuth}
+                  />
+                  <small className="field-hint">{cimdClientAuthOptions.find((option) => option.value === clientAuth)!.hint}</small>
                 </div>
-                {clientAuth === "private_key_jwt" && (
+                {clientAuth !== "none" && (
                   <div className="field">
-                    <span id="key-location-label">Public key location</span>
-                    <Segmented labelId="key-location-label" options={keyLocationOptions} value={keyProfile} onChange={selectKeyProfile} />
-                    <small className="field-hint">{keyLocationOptions.find((option) => option.value === keyProfile)!.hint}</small>
+                    <span id="key-location-label">
+                      {clientAuth === "self_signed_tls_client_auth" ? "Certificate location" : "Public key location"}
+                    </span>
+                    <Segmented
+                      labelId="key-location-label"
+                      options={keyLocationOptions(clientAuth)}
+                      value={keyLocationOf(form.cimdProfile)}
+                      onChange={(location) => selectConfidentialProfile(profileFor(clientAuth, location))}
+                    />
+                    <small className="field-hint">
+                      {keyLocationOptions(clientAuth).find((option) => option.value === keyLocationOf(form.cimdProfile))!.hint}
+                    </small>
                   </div>
                 )}
                 {cimdProfilesError ? (
@@ -1101,7 +1136,16 @@ function ConnectionPanel({
                       {grant === "authorization_code" && (
                         <ValueRow label="Redirect URI" value={selectedCimdProfile.redirectUri} />
                       )}
+                      {selectedCimdProfile.certificateThumbprint && (
+                        <ValueRow label="Certificate SHA-256" value={selectedCimdProfile.certificateThumbprint} />
+                      )}
                     </div>
+                    {clientAuth === "self_signed_tls_client_auth" && !selectedCimdProfile.certificateThumbprint && (
+                      <div className="form-notice warning">
+                        <CircleAlert size={15} />
+                        The backend has no mutual TLS certificate configured. Generate one with scripts/generate-cimd-mtls-cert.mjs.
+                      </div>
+                    )}
                     {!selectedCimdProfile.url.startsWith("https://") && (
                       <div className="form-notice warning">
                         <CircleAlert size={15} />

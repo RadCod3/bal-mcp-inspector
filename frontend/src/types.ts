@@ -25,8 +25,8 @@ export interface CreateConnectionResponse {
 
 export type ProtocolMode = "auto" | "modern" | "legacy";
 export type SecretMethod = "client_secret_basic" | "client_secret_post";
-export type CimdProfile = "jwks" | "jwks_uri" | "none";
-export type CimdPrivateKeyProfile = Exclude<CimdProfile, "none">;
+export type CimdProfile = "jwks" | "jwks_uri" | "mtls_jwks" | "mtls_jwks_uri" | "none";
+export type CimdConfidentialProfile = Exclude<CimdProfile, "none">;
 
 export type ClientSecretAuthentication = {
   authMethod: SecretMethod;
@@ -38,9 +38,11 @@ export interface CimdProfileInfo {
   label: string;
   description: string;
   url: string;
-  tokenEndpointAuthMethod: "private_key_jwt" | "none";
+  tokenEndpointAuthMethod: "private_key_jwt" | "self_signed_tls_client_auth" | "none";
   redirectUri: string;
   supportsClientCredentials: boolean;
+  // SHA-256 thumbprint (x5t#S256) of the certificate a mutual TLS profile presents
+  certificateThumbprint?: string;
 }
 
 export type AuthConfig =
@@ -67,7 +69,7 @@ export type AuthConfig =
     }
   | {
       authType: "cimd_client_credentials";
-      profile: CimdPrivateKeyProfile;
+      profile: CimdConfidentialProfile;
       scopes: string[];
     };
 

@@ -1,3 +1,4 @@
+import ballerina/io;
 import ballerina/mcp;
 import ballerina/test;
 
@@ -187,10 +188,58 @@ function testCimdProfileDocuments() returns error? {
 @test:Config {}
 function testCimdProfileCapabilities() {
     CimdProfileInfo[] profiles = listCimdProfiles();
-    test:assertEquals(profiles.length(), 3);
-    test:assertTrue(profiles[0].supportsClientCredentials);
-    test:assertTrue(profiles[1].supportsClientCredentials);
-    test:assertFalse(profiles[2].supportsClientCredentials);
+    test:assertEquals(profiles.map((profile) => profile.id), ["jwks", "jwks_uri", "mtls_jwks", "mtls_jwks_uri", "none"]);
+    foreach CimdProfileInfo profile in profiles {
+        test:assertEquals(profile.supportsClientCredentials, profile.id != "none");
+    }
+    test:assertEquals(profiles[2].tokenEndpointAuthMethod, "self_signed_tls_client_auth");
+    test:assertEquals(profiles[3].tokenEndpointAuthMethod, "self_signed_tls_client_auth");
+}
+
+const MTLS_TEST_RESOURCES = "tests/resources/mtls/";
+
+@test:Config {}
+function testCimdMutualTlsDocuments() returns error? {
+    json jwks = check loadCimdMtlsJwks(MTLS_TEST_RESOURCES + "cimd-mtls-jwks.json",
+        MTLS_TEST_RESOURCES + "cimd-mtls-certificate.pem");
+
+    json inlineValue = check buildCimdDocument("mtls_jwks", jwks);
+    test:assertTrue(inlineValue is map<json>);
+    if inlineValue is map<json> {
+        test:assertEquals(inlineValue["client_id"], cimdProfileUrl("mtls_jwks"));
+        test:assertEquals(inlineValue["token_endpoint_auth_method"], "self_signed_tls_client_auth");
+        test:assertEquals(inlineValue["jwks"], jwks);
+        test:assertFalse(inlineValue.hasKey("token_endpoint_auth_signing_alg"));
+        test:assertEquals(inlineValue["grant_types"], ["authorization_code", "refresh_token", "client_credentials"]);
+    }
+
+    json uriValue = check buildCimdDocument("mtls_jwks_uri");
+    test:assertTrue(uriValue is map<json>);
+    if uriValue is map<json> {
+        test:assertEquals(uriValue["jwks_uri"], cimdMtlsCertificatesUrl());
+        test:assertFalse(uriValue.hasKey("jwks"));
+    }
+    test:assertNotEquals(cimdProfileUrl("mtls_jwks"), cimdProfileUrl("jwks"));
+    test:assertNotEquals(cimdProfileUrl("mtls_jwks_uri"), cimdProfileUrl("jwks_uri"));
+}
+
+@test:Config {}
+function testCimdMtlsJwksMustPublishTheCertificate() {
+    json|error mismatched = loadCimdMtlsJwks(MTLS_TEST_RESOURCES + "cimd-mtls-jwks.json",
+        MTLS_TEST_RESOURCES + "other-certificate.pem");
+    test:assertTrue(mismatched is error);
+    json|error notPem = loadCimdMtlsJwks(MTLS_TEST_RESOURCES + "cimd-mtls-jwks.json",
+        MTLS_TEST_RESOURCES + "cimd-mtls-jwks.json");
+    test:assertTrue(notPem is error);
+}
+
+@test:Config {}
+function testCimdMtlsCertificateThumbprint() returns error? {
+    json jwks = check io:fileReadJson(MTLS_TEST_RESOURCES + "cimd-mtls-jwks.json");
+    json[] keys = check jwks.keys.ensureType();
+    json expected = check keys[0].x5t\#S256;
+    test:assertEquals(check cimdMtlsCertificateThumbprint(MTLS_TEST_RESOURCES + "cimd-mtls-certificate.pem"),
+        expected);
 }
 
 @test:Config {}
