@@ -260,10 +260,6 @@ isolated function buildAuthorizationServerMetadataUrls(string issuer) returns st
 
 # Discovers authorization server metadata for an issuer.
 #
-# The `issuer` in the retrieved document is compared against the requested issuer by exact
-# string comparison, as required by RFC 8414 section 3.3. A mismatch fails immediately
-# rather than falling through to the next candidate.
-#
 # + issuer - Issuer identifier of the authorization server
 # + config - HTTP settings for the requests
 # + observer - Optional observer for authorization metadata events
@@ -271,15 +267,36 @@ isolated function buildAuthorizationServerMetadataUrls(string issuer) returns st
 isolated function discoverAuthorizationServerMetadata(string issuer,
         readonly & AuthHttpConfig config = {}, ClientObserver? observer = ())
         returns AuthorizationServerMetadata|Error {
+    IssuerMetadata metadata = check discoverIssuerMetadata(issuer, AuthorizationServerMetadata, config, observer);
+    // The value was converted to `AuthorizationServerMetadata`, so the cast cannot fail.
+    return <AuthorizationServerMetadata>metadata;
+}
+
+// Discovers Identity Provider metadata. Only the issuer and token endpoint are required.
+isolated function discoverIdentityProviderMetadata(string issuer,
+        readonly & AuthHttpConfig config = {}, ClientObserver? observer = ())
+        returns IdentityProviderMetadata|Error {
+    IssuerMetadata metadata = check discoverIssuerMetadata(issuer, IdentityProviderMetadata, config, observer,
+            IDENTITY_PROVIDER);
+    // The value was converted to `IdentityProviderMetadata`, so the cast cannot fail.
+    return <IdentityProviderMetadata>metadata;
+}
+
+// Retrieves and converts issuer metadata from the RFC 8414 and OpenID Connect locations.
+// RFC 8414 requires exact issuer matching; a mismatch fails without trying another candidate.
+// Events are reported against `eventTarget`.
+isolated function discoverIssuerMetadata(string issuer, typedesc<IssuerMetadata> metadataType,
+        readonly & AuthHttpConfig config, ClientObserver? observer,
+        ClientEventTarget eventTarget = AUTHORIZATION_SERVER) returns IssuerMetadata|Error {
     string[] candidates = check buildAuthorizationServerMetadataUrls(issuer);
     Error? lastError = ();
     foreach string candidate in candidates {
-        json|Error payload = fetchJson(candidate, config, observer);
+        json|Error payload = fetchJson(candidate, config, observer, eventTarget);
         if payload is Error {
             lastError = payload;
             continue;
         }
-        AuthorizationServerMetadata|error metadata = payload.cloneWithType();
+        IssuerMetadata|error metadata = payload.cloneWithType(metadataType);
         if metadata is error {
             lastError = error OAuthDiscoveryError(
                 string `Authorization server metadata at '${candidate}' is not well formed.`, metadata);

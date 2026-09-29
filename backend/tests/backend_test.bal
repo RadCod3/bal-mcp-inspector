@@ -134,12 +134,12 @@ function testCimdAuthorizationCodeConfiguration() returns error? {
     };
     mcp:OAuthConfig oauthConfig =
         check createCimdAuthorizationCodeOAuthConfig("connection-1", authConfig);
-    mcp:ClientCredentialsGrant|mcp:AuthorizationCodeGrant grant = oauthConfig.grant;
+    mcp:ClientCredentialsGrant|mcp:AuthorizationCodeGrant|mcp:IdentityAssertionGrant grant = oauthConfig.grant;
     test:assertTrue(grant is mcp:AuthorizationCodeGrant);
     if grant is mcp:AuthorizationCodeGrant {
-        mcp:AuthorizationCodeClientConfig clientConfig = grant.clientConfig;
-        test:assertTrue(clientConfig is mcp:CimdAuthorizationCodeConfig);
-        if clientConfig is mcp:CimdAuthorizationCodeConfig {
+        mcp:OAuthClientConfig clientConfig = grant.clientConfig;
+        test:assertTrue(clientConfig is mcp:CimdClientConfig);
+        if clientConfig is mcp:CimdClientConfig {
             test:assertEquals(clientConfig.url, cimdProfileUrl("none"));
             test:assertEquals(clientConfig?.clientAuth, ());
         }
@@ -253,11 +253,11 @@ function testPreRegisteredOAuthUsesClientSecrets() {
     };
     mcp:OAuthConfig authorizationCodeConfig =
         createAuthorizationCodeOAuthConfig("connection-1", authorizationCode);
-    mcp:ClientCredentialsGrant|mcp:AuthorizationCodeGrant authorizationCodeGrant =
+    mcp:ClientCredentialsGrant|mcp:AuthorizationCodeGrant|mcp:IdentityAssertionGrant authorizationCodeGrant =
         authorizationCodeConfig.grant;
     test:assertTrue(authorizationCodeGrant is mcp:AuthorizationCodeGrant);
     if authorizationCodeGrant is mcp:AuthorizationCodeGrant {
-        test:assertTrue(authorizationCodeGrant.clientConfig is mcp:PreRegisteredAuthorizationCodeConfig);
+        test:assertTrue(authorizationCodeGrant.clientConfig is mcp:PreRegisteredClientConfig);
         test:assertTrue(authorizationCodeGrant.clientConfig?.clientAuth is mcp:ClientSecretConfig);
     }
 
@@ -268,7 +268,7 @@ function testPreRegisteredOAuthUsesClientSecrets() {
         clientAuth: {authMethod: mcp:CLIENT_SECRET_POST, clientSecret: "secret"}
     };
     mcp:OAuthConfig clientCredentialsConfig = createClientCredentialsOAuthConfig(clientCredentials);
-    mcp:ClientCredentialsGrant|mcp:AuthorizationCodeGrant clientCredentialsGrant =
+    mcp:ClientCredentialsGrant|mcp:AuthorizationCodeGrant|mcp:IdentityAssertionGrant clientCredentialsGrant =
         clientCredentialsConfig.grant;
     test:assertTrue(clientCredentialsGrant is mcp:ClientCredentialsGrant);
     if clientCredentialsGrant is mcp:ClientCredentialsGrant {

@@ -60,8 +60,38 @@ public type CimdClientCredentialsAuthConfig record {|
     string[] scopes = [];
 |};
 
+// The enterprise Identity Provider of an enterprise-managed authorization (ID-JAG) connection. The
+// inspector signs the user in there (OpenID Connect, leg 1) and exchanges the ID token for an ID-JAG
+// (leg 2); the MCP client then redeems the ID-JAG at the resource authorization server (leg 3).
+public type IdentityProviderSettings record {|
+    string issuer;
+    string clientId;
+    // Omitted for a public client
+    ClientSecretAuthentication clientAuth?;
+    // Must be registered with the Identity Provider
+    string redirectUri;
+    string[] loginScopes = ["openid"];
+|};
+
+public type IdentityAssertionAuthConfig record {|
+    "identity_assertion" authType;
+    string clientId;
+    string issuer;
+    ClientSecretAuthentication clientAuth;
+    IdentityProviderSettings identityProvider;
+    string[] scopes = [];
+|};
+
+public type CimdIdentityAssertionAuthConfig record {|
+    "cimd_identity_assertion" authType;
+    CimdProfile profile;
+    IdentityProviderSettings identityProvider;
+    string[] scopes = [];
+|};
+
 public type AuthConfig NoAuthConfig|AuthorizationCodeAuthConfig|CimdAuthorizationCodeAuthConfig|
-    ClientCredentialsAuthConfig|CimdClientCredentialsAuthConfig;
+    ClientCredentialsAuthConfig|CimdClientCredentialsAuthConfig|IdentityAssertionAuthConfig|
+    CimdIdentityAssertionAuthConfig;
 
 public type CreateConnectionRequest record {|
     string serverUrl;

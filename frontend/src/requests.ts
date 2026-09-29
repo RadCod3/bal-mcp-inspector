@@ -128,6 +128,7 @@ export function targetLabel(target: string) {
   const labels: Record<string, string> = {
     mcp_server: "MCP server",
     authorization_server: "Auth server",
+    identity_provider: "Identity provider",
     protected_resource: "Resource",
     user_agent: "Browser",
     inspector: "Inspector",

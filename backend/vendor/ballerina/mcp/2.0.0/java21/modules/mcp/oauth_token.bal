@@ -26,7 +26,7 @@ const CLIENT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-b
 # Lifetime of a client assertion, in seconds.
 const decimal CLIENT_ASSERTION_EXPIRY = 300;
 
-# Posts a form to the token endpoint and parses the response.
+# Posts a form to the token endpoint and parses the response as an access token response.
 #
 # + clientAuth - How the client authenticates
 # + metadata - Validated authorization server metadata
@@ -40,59 +40,7 @@ isolated function requestToken(ClientAuth? clientAuth, AuthorizationServerMetada
         ClientObserver? observer = ())
         returns TokenResponse|Error {
     string tokenEndpoint = selectTokenEndpoint(clientAuth, metadata);
-    readonly & AuthHttpConfig tokenConfig = clientAuth is MutualTlsConfig
-        ? withClientCertificate(config, clientAuth)
-        : config;
-    map<string> params = form.clone();
-    map<string|string[]> headers = {
-        [CONTENT_TYPE_HEADER]: "application/x-www-form-urlencoded",
-        [ACCEPT_HEADER]: CONTENT_TYPE_JSON
-    };
-    check applyClientAuthentication(clientAuth, clientId, tokenEndpoint,
-            params, headers);
-
-    string body = check encodeForm(params);
-    [string, string] [origin, path] = check splitUrl(tokenEndpoint);
-    http:Client tokenClient = check createAuthClient(origin, tokenConfig);
-    map<string> sanitizedParameters = sanitizedTokenParameters(params);
-    notifyClientObserver(observer, {
-        eventType: HTTP_REQUEST,
-        eventTarget: AUTHORIZATION_SERVER,
-        eventUrl: tokenEndpoint,
-        httpMethod: "POST",
-        eventHeaders: sanitizedEventHeaders(headers),
-        eventBody: sanitizedParameters.toJsonString(),
-        eventMessage: tokenRequestEventMessage(clientAuth, tokenEndpoint, metadata)
-    });
-    http:Response|error response = tokenClient->post(path, body, headers);
-    if response is error {
-        notifyClientObserver(observer, {
-            eventType: CLIENT_ERROR,
-            eventTarget: AUTHORIZATION_SERVER,
-            eventUrl: tokenEndpoint,
-            httpMethod: "POST",
-            eventMessage: response.message()
-        });
-        return error OAuthTokenError(string `Request to token endpoint '${tokenEndpoint}' failed: ${response.message()}`,
-            response);
-    }
-    notifyClientObserver(observer, {
-        eventType: HTTP_RESPONSE,
-        eventTarget: AUTHORIZATION_SERVER,
-        eventUrl: tokenEndpoint,
-        httpMethod: "POST",
-        statusCode: response.statusCode,
-        eventHeaders: sanitizedResponseHeaders(response),
-        eventMessage: "OAuth token response body redacted"
-    });
-    json|error payload = response.getJsonPayload();
-    if response.statusCode != http:STATUS_OK {
-        return buildOAuthTokenError(tokenEndpoint, response.statusCode, payload);
-    }
-    if payload is error {
-        return error OAuthTokenError(
-            string `Response from token endpoint '${tokenEndpoint}' is not valid JSON.`, payload);
-    }
+    json payload = check postTokenRequest(clientAuth, clientId, metadata, form, config, observer);
     TokenResponse|error tokenResponse = payload.cloneWithType();
     if tokenResponse is error {
         return error OAuthTokenError(string `Response from token endpoint '${tokenEndpoint}' does not ` +
@@ -114,15 +62,80 @@ isolated function requestToken(ClientAuth? clientAuth, AuthorizationServerMetada
     return tokenResponse;
 }
 
+// Posts an authenticated token request and returns its successful JSON body. Events are
+// reported against `eventTarget`: the authorization server, or the Identity Provider for the
+// ID-JAG token exchange.
+isolated function postTokenRequest(ClientAuth? clientAuth, string clientId,
+        AuthorizationServerMetadata|IdentityProviderMetadata metadata, map<string> form,
+        readonly & AuthHttpConfig config, ClientObserver? observer = (),
+        ClientEventTarget eventTarget = AUTHORIZATION_SERVER) returns json|Error {
+    string tokenEndpoint = selectTokenEndpoint(clientAuth, metadata);
+    readonly & AuthHttpConfig tokenConfig = clientAuth is MutualTlsConfig
+        ? withClientCertificate(config, clientAuth)
+        : config;
+    map<string> params = form.clone();
+    map<string|string[]> headers = {
+        [CONTENT_TYPE_HEADER]: "application/x-www-form-urlencoded",
+        [ACCEPT_HEADER]: CONTENT_TYPE_JSON
+    };
+    check applyClientAuthentication(clientAuth, clientId, tokenEndpoint,
+            params, headers);
+
+    string body = check encodeForm(params);
+    [string, string] [origin, path] = check splitUrl(tokenEndpoint);
+    http:Client tokenClient = check createAuthClient(origin, tokenConfig);
+    map<string> sanitizedParameters = sanitizedTokenParameters(params);
+    notifyClientObserver(observer, {
+        eventType: HTTP_REQUEST,
+        eventTarget,
+        eventUrl: tokenEndpoint,
+        httpMethod: "POST",
+        eventHeaders: sanitizedEventHeaders(headers),
+        eventBody: sanitizedParameters.toJsonString(),
+        eventMessage: tokenRequestEventMessage(clientAuth, tokenEndpoint, metadata)
+    });
+    http:Response|error response = tokenClient->post(path, body, headers);
+    if response is error {
+        notifyClientObserver(observer, {
+            eventType: CLIENT_ERROR,
+            eventTarget,
+            eventUrl: tokenEndpoint,
+            httpMethod: "POST",
+            eventMessage: response.message()
+        });
+        return error OAuthTokenError(string `Request to token endpoint '${tokenEndpoint}' failed: ${response.message()}`,
+            response);
+    }
+    notifyClientObserver(observer, {
+        eventType: HTTP_RESPONSE,
+        eventTarget,
+        eventUrl: tokenEndpoint,
+        httpMethod: "POST",
+        statusCode: response.statusCode,
+        eventHeaders: sanitizedResponseHeaders(response),
+        eventMessage: "OAuth token response body redacted"
+    });
+    json|error payload = response.getJsonPayload();
+    if response.statusCode != http:STATUS_OK {
+        return buildOAuthTokenError(tokenEndpoint, response.statusCode, payload);
+    }
+    if payload is error {
+        return error OAuthTokenError(
+            string `Response from token endpoint '${tokenEndpoint}' is not valid JSON.`, payload,
+            statusCode = response.statusCode);
+    }
+    return payload;
+}
+
 # Describes a token request for observers. Mutual TLS is named explicitly, since its client
 # credential is presented in the TLS handshake and does not appear in the request.
 #
 # + clientAuth - How the client authenticates
 # + tokenEndpoint - Token endpoint being called
-# + metadata - Validated authorization server metadata
+# + metadata - Validated authorization server or Identity Provider metadata
 # + return - The event message
 isolated function tokenRequestEventMessage(ClientAuth? clientAuth, string tokenEndpoint,
-        AuthorizationServerMetadata metadata) returns string {
+        AuthorizationServerMetadata|IdentityProviderMetadata metadata) returns string {
     if clientAuth !is MutualTlsConfig {
         return "OAuth token request";
     }
@@ -137,10 +150,10 @@ isolated function tokenRequestEventMessage(ClientAuth? clientAuth, string tokenE
 # `mtls_endpoint_aliases` entry when one is published (RFC 8705 section 5).
 #
 # + clientAuth - How the client authenticates
-# + metadata - Validated authorization server metadata
+# + metadata - Validated authorization server or Identity Provider metadata
 # + return - The token endpoint URL
-isolated function selectTokenEndpoint(ClientAuth? clientAuth, AuthorizationServerMetadata metadata)
-        returns string {
+isolated function selectTokenEndpoint(ClientAuth? clientAuth,
+        AuthorizationServerMetadata|IdentityProviderMetadata metadata) returns string {
     if clientAuth is MutualTlsConfig {
         string? alias = metadata?.mtls_endpoint_aliases?.token_endpoint;
         if alias is string {
@@ -166,33 +179,34 @@ isolated function withClientCertificate(readonly & AuthHttpConfig config, Mutual
     return tokenConfig.cloneReadOnly();
 }
 
-# Maps a token endpoint error response to a typed error.
-#
-# + tokenEndpoint - Token endpoint that was called, for the message
-# + statusCode - HTTP status code of the response
-# + payload - Parsed response body, if it could be parsed
-# + return - An `OAuthInvalidGrantError` for `invalid_grant`, otherwise an `OAuthTokenError`
+// Maps a token endpoint error response (RFC 6749 section 5.2) to a typed error. The response
+// fields are retained so applications can act on values such as
+// `insufficient_user_authentication` with `max_age`.
 isolated function buildOAuthTokenError(string tokenEndpoint, int statusCode, json|error payload)
         returns Error {
-    string errorCode = "";
-    string description = "";
+    string? errorCode = ();
+    string? description = ();
+    string? errorUri = ();
+    int? maxAge = ();
     if payload is map<json> {
         json codeValue = payload["error"] ?: ();
-        if codeValue is string {
-            errorCode = codeValue;
-        }
+        errorCode = codeValue is string ? codeValue : ();
         json descriptionValue = payload["error_description"] ?: ();
-        if descriptionValue is string {
-            description = descriptionValue;
-        }
+        description = descriptionValue is string ? descriptionValue : ();
+        json errorUriValue = payload["error_uri"] ?: ();
+        errorUri = errorUriValue is string ? errorUriValue : ();
+        json maxAgeValue = payload["max_age"] ?: ();
+        maxAge = maxAgeValue is int ? maxAgeValue : ();
     }
-    string detail = errorCode == "" ? string `status ${statusCode}`
-        : (description == "" ? string `'${errorCode}'` : string `'${errorCode}': ${description}`);
+    string detail = errorCode is () ? string `status ${statusCode}`
+        : (description is () ? string `'${errorCode}'` : string `'${errorCode}': ${description}`);
     string message = string `Token endpoint '${tokenEndpoint}' rejected the request with ${detail}.`;
     if errorCode == "invalid_grant" {
-        return error OAuthInvalidGrantError(message);
+        return error OAuthInvalidGrantError(message, code = errorCode, description = description,
+            errorUri = errorUri, statusCode = statusCode, maxAge = maxAge);
     }
-    return error OAuthTokenError(message);
+    return error OAuthTokenError(message, code = errorCode, description = description,
+        errorUri = errorUri, statusCode = statusCode, maxAge = maxAge);
 }
 
 # Applies client authentication to a token request.

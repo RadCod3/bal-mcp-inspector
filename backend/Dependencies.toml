@@ -250,6 +250,7 @@ dependencies = [
 	{org = "ballerina", name = "http"},
 	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "jwt"},
+	{org = "ballerina", name = "lang.array"},
 	{org = "ballerina", name = "lang.regexp"},
 	{org = "ballerina", name = "log"},
 	{org = "ballerina", name = "time"},
@@ -343,6 +344,9 @@ version = "2.6.2"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
 ]
+modules = [
+	{org = "ballerina", packageName = "url", moduleName = "url"}
+]
 
 [[package]]
 org = "ballerina"
@@ -385,6 +389,7 @@ dependencies = [
 	{org = "ballerina", name = "mcp"},
 	{org = "ballerina", name = "test"},
 	{org = "ballerina", name = "time"},
+	{org = "ballerina", name = "url"},
 	{org = "ballerina", name = "uuid"},
 	{org = "ballerinai", name = "observe"}
 ]
