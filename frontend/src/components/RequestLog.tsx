@@ -1,5 +1,6 @@
-import { ArrowDown, ArrowDownLeft, ArrowUpRight, CircleAlert, Info, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowDownLeft, ArrowUpRight, CircleAlert, Download, Info, Search, Trash2, X } from "lucide-react";
 import { KeyboardEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { downloadLog, EXPORT_FORMATS, ExportContext, exchangeTranscript } from "../exportLog";
 import type { InspectorEvent } from "../types";
 import {
   buildExchanges,
@@ -17,12 +18,18 @@ import {
 } from "../requests";
 import { CodeBlock, CopyButton } from "./CodeBlock";
 
-export function RequestLog({ events, onClear }: { events: InspectorEvent[]; onClear: () => void }) {
+export function RequestLog({ events, context, onClear }: {
+  events: InspectorEvent[];
+  context: ExportContext;
+  onClear: () => void;
+}) {
   const exchanges = useMemo(() => buildExchanges(events), [events]);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [atBottom, setAtBottom] = useState(true);
   const [seenCount, setSeenCount] = useState(0);
+  // The Formatted/Raw choice carries over as the selection moves between requests.
+  const [raw, setRaw] = useState(false);
   const rowsRef = useRef<HTMLDivElement>(null);
 
   const query = search.trim().toLowerCase();
@@ -92,9 +99,10 @@ export function RequestLog({ events, onClear }: { events: InspectorEvent[]; onCl
         <span className="toolbar-count">
           {query ? `${visible.length} of ${exchanges.length}` : exchanges.length} {exchanges.length === 1 ? "request" : "requests"}
         </span>
+        <ExportMenu events={events} context={context} />
         <button
           type="button"
-          className="ghost-button toolbar-clear"
+          className="ghost-button"
           onClick={() => {
             setSelectedId(null);
             onClear();
@@ -150,9 +158,53 @@ export function RequestLog({ events, onClear }: { events: InspectorEvent[]; onCl
             </button>
           )}
         </div>
-        {selected && <RequestDetail key={selected.id} exchange={selected} onClose={() => setSelectedId(null)} />}
+        {selected && <RequestDetail key={selected.id} exchange={selected} raw={raw} setRaw={setRaw} onClose={() => setSelectedId(null)} />}
       </div>
     </section>
+  );
+}
+
+// Exports cover everything captured for the connection, whatever the filter shows.
+function ExportMenu({ events, context }: { events: InspectorEvent[]; context: ExportContext }) {
+  const menuRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    const closeOutside = (event: MouseEvent) => {
+      const menu = menuRef.current;
+      if (menu?.open && !menu.contains(event.target as Node)) menu.open = false;
+    };
+    document.addEventListener("mousedown", closeOutside);
+    return () => document.removeEventListener("mousedown", closeOutside);
+  }, []);
+
+  const disabled = events.length === 0;
+  return (
+    <details className={`export-menu toolbar-export ${disabled ? "disabled" : ""}`} ref={menuRef}>
+      <summary
+        className="ghost-button"
+        title="Download the captured traffic for interop evidence"
+        aria-disabled={disabled}
+        onClick={(event) => { if (disabled) event.preventDefault(); }}
+      >
+        <Download size={15} /> Export
+      </summary>
+      <div className="export-options" role="menu">
+        {EXPORT_FORMATS.map((option) => (
+          <button
+            key={option.format}
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              downloadLog(option.format, events, context);
+              if (menuRef.current) menuRef.current.open = false;
+            }}
+          >
+            <strong>{option.label}</strong>
+            <small>{option.detail}</small>
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -213,7 +265,12 @@ function RequestRow({ exchange, slowest, selected, onSelect }: {
   );
 }
 
-function RequestDetail({ exchange, onClose }: { exchange: HttpExchange; onClose: () => void }) {
+function RequestDetail({ exchange, raw, setRaw, onClose }: {
+  exchange: HttpExchange;
+  raw: boolean;
+  setRaw: (raw: boolean) => void;
+  onClose: () => void;
+}) {
   const name = requestName(exchange);
   const duration = formatDuration(durationMs(exchange));
   const url = exchange.request.eventUrl ?? "";
@@ -227,73 +284,89 @@ function RequestDetail({ exchange, onClose }: { exchange: HttpExchange; onClose:
           <h3>{name.label}</h3>
           {name.detail && <span className="name-detail">{name.detail}</span>}
         </div>
-        <button type="button" className="icon-button" onClick={onClose} aria-label="Close details" title="Close (Esc)">
-          <X size={16} />
-        </button>
+        <div className="detail-actions">
+          <div className="segmented compact" role="group" aria-label="Detail format">
+            <button type="button" className={raw ? "" : "active"} aria-pressed={!raw} onClick={() => setRaw(false)}>Formatted</button>
+            <button type="button" className={raw ? "active" : ""} aria-pressed={raw} onClick={() => setRaw(true)}>Raw</button>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Close details" title="Close (Esc)">
+            <X size={16} />
+          </button>
+        </div>
       </header>
 
-      <div className="detail-scroll">
-        <div className="detail-url">
-          <code>{url}</code>
-          <CopyButton value={url} label="Copy URL" />
+      {raw ? (
+        <div className="detail-scroll">
+          <CodeBlock value={exchangeTranscript(exchange)} />
+          <p className="raw-note">
+            As reported by the client's observer, with credentials redacted. Header order and transport headers may
+            differ from the wire.
+          </p>
         </div>
-
-        <dl className="detail-facts">
-          <div><dt>Target</dt><dd>{targetLabel(exchange.request.eventTarget)}</dd></div>
-          <div><dt>Started</dt><dd className="mono">{formatTime(exchange.request.timestamp)}</dd></div>
-          <div><dt>Duration</dt><dd className="mono">{duration || "—"}</dd></div>
-          <div><dt>Sequence</dt><dd className="mono">#{exchange.request.sequence}</dd></div>
-        </dl>
-
-        {exchange.errors.map((event) => (
-          <div className="callout danger" key={event.sequence}>
-            <CircleAlert size={16} />
-            <span>{event.eventMessage ?? "The client reported an error for this request."}</span>
+      ) : (
+        <div className="detail-scroll">
+          <div className="detail-url">
+            <code>{url}</code>
+            <CopyButton value={url} label="Copy URL" />
           </div>
-        ))}
-        {exchange.request.eventMessage && (
-          // Context the client gives for its own request, such as how a token request is authenticated.
-          <div className="callout info">
-            <Info size={16} />
-            <span>{exchange.request.eventMessage}</span>
-          </div>
-        )}
-        {exchange.notes.map((event) => (
-          <div className="callout info" key={event.sequence}>
-            <Info size={16} />
-            <span>{event.eventMessage ?? "The server responded with an OAuth authorization challenge."}</span>
-          </div>
-        ))}
 
-        <DetailSection title="Request" direction="out" aside={`${exchange.request.httpMethod ?? "HTTP"} to ${hostOf(url)}`}>
-          <Headers event={exchange.request} />
-          <Body event={exchange.request} label="Body" />
-        </DetailSection>
+          <dl className="detail-facts">
+            <div><dt>Target</dt><dd>{targetLabel(exchange.request.eventTarget)}</dd></div>
+            <div><dt>Started</dt><dd className="mono">{formatTime(exchange.request.timestamp)}</dd></div>
+            <div><dt>Duration</dt><dd className="mono">{duration || "—"}</dd></div>
+            <div><dt>Sequence</dt><dd className="mono">#{exchange.request.sequence}</dd></div>
+          </dl>
 
-        <DetailSection
-          title="Response"
-          direction="in"
-          aside={exchange.response?.statusCode !== undefined ? `HTTP ${exchange.response.statusCode}` : "Waiting"}
-        >
-          {exchange.response ? (
-            <>
-              <Headers event={exchange.response} />
-              {exchange.bodies.length === 0 ? (
-                <Block title="Body"><p className="empty-note">No body captured.</p></Block>
-              ) : exchange.bodies.map((event, index) => (
-                <Body
-                  key={event.sequence}
-                  event={event}
-                  label={exchange.bodies.length > 1 ? `Message ${index + 1}` : "Body"}
-                  hint={event.eventMessage}
-                />
-              ))}
-            </>
-          ) : (
-            <p className="empty-note">No response received yet.</p>
+          {exchange.errors.map((event) => (
+            <div className="callout danger" key={event.sequence}>
+              <CircleAlert size={16} />
+              <span>{event.eventMessage ?? "The client reported an error for this request."}</span>
+            </div>
+          ))}
+          {exchange.request.eventMessage && (
+            // Context the client gives for its own request, such as how a token request is authenticated.
+            <div className="callout info">
+              <Info size={16} />
+              <span>{exchange.request.eventMessage}</span>
+            </div>
           )}
-        </DetailSection>
-      </div>
+          {exchange.notes.map((event) => (
+            <div className="callout info" key={event.sequence}>
+              <Info size={16} />
+              <span>{event.eventMessage ?? "The server responded with an OAuth authorization challenge."}</span>
+            </div>
+          ))}
+
+          <DetailSection title="Request" direction="out" aside={`${exchange.request.httpMethod ?? "HTTP"} to ${hostOf(url)}`}>
+            <Headers event={exchange.request} />
+            <Body event={exchange.request} label="Body" />
+          </DetailSection>
+
+          <DetailSection
+            title="Response"
+            direction="in"
+            aside={exchange.response?.statusCode !== undefined ? `HTTP ${exchange.response.statusCode}` : "Waiting"}
+          >
+            {exchange.response ? (
+              <>
+                <Headers event={exchange.response} />
+                {exchange.bodies.length === 0 ? (
+                  <Block title="Body"><p className="empty-note">No body captured.</p></Block>
+                ) : exchange.bodies.map((event, index) => (
+                  <Body
+                    key={event.sequence}
+                    event={event}
+                    label={exchange.bodies.length > 1 ? `Message ${index + 1}` : "Body"}
+                    hint={event.eventMessage}
+                  />
+                ))}
+              </>
+            ) : (
+              <p className="empty-note">No response received yet.</p>
+            )}
+          </DetailSection>
+        </div>
+      )}
     </aside>
   );
 }
