@@ -281,7 +281,7 @@ const registrationOptions: { value: Registration; label: string; hint: string }[
   {
     value: "cimd",
     label: "Client ID Metadata Document",
-    hint: "The inspector hosts its own client ID, so there is nothing to register. Its private keys stay on the backend.",
+    hint: "The client hosts its own client ID, so there is nothing to register. Its private keys stay on the backend.",
   },
 ];
 
@@ -301,11 +301,11 @@ type KeyLocation = "jwks" | "jwks_uri";
 
 const cimdClientAuthOptions: { value: CimdClientAuth; label: string; hint: string }[] = [
   { value: "none", label: "None (public client)", hint: "The client doesn't authenticate at the token endpoint." },
-  { value: "private_key_jwt", label: "Signed JWT", hint: "The inspector signs a JWT with its private key (private_key_jwt)." },
+  { value: "private_key_jwt", label: "Signed JWT", hint: "The client signs a JWT with its private key (private_key_jwt)." },
   {
     value: "self_signed_tls_client_auth",
     label: "Mutual TLS",
-    hint: "The inspector presents a self-signed certificate in the TLS handshake (self_signed_tls_client_auth).",
+    hint: "The client presents a self-signed certificate in the TLS handshake (self_signed_tls_client_auth).",
   },
 ];
 
@@ -313,7 +313,7 @@ function keyLocationOptions(clientAuth: ConfidentialClientAuth): { value: KeyLoc
   const material = clientAuth === "self_signed_tls_client_auth" ? "certificate" : "public key";
   return [
     { value: "jwks", label: "In the document", hint: `The ${material} is embedded as jwks in the metadata document.` },
-    { value: "jwks_uri", label: "At a JWKS URL", hint: `The metadata document's jwks_uri points to the inspector's ${material}.` },
+    { value: "jwks_uri", label: "At a JWKS URL", hint: `The metadata document's jwks_uri points to the client's ${material}.` },
   ];
 }
 
@@ -901,8 +901,8 @@ export default function App() {
       <main className="workspace">
         <aside className="sidebar">
           <div className="brand">
-            <strong>MCP Inspector</strong>
-            <span>for the Ballerina MCP client</span>
+            <strong>MCP Client</strong>
+            <span>built on ballerina/mcp</span>
           </div>
 
           <div className="sidebar-section">
@@ -1040,7 +1040,7 @@ export default function App() {
                   <KeyRound size={20} />
                   <div>
                     <strong>Authorization is required</strong>
-                    <p>Continue in the provider window. The inspector never stores the returned code or token.</p>
+                    <p>Continue in the provider window. This page never stores the returned code or token.</p>
                   </div>
                   <a className="primary-button" href={authorizationUrl} target="_blank" rel="noreferrer">
                     Authorize <ExternalLink size={15} />
@@ -1235,7 +1235,7 @@ function ConnectionPanel({
                   <small className="field-hint">The identity provider's issuer URL. Its OpenID Connect metadata is discovered from it.</small>
                 </label>
                 <div className="field-grid">
-                  <label className="field"><span>Client ID</span><input required value={form.idpClientId} onChange={(e) => update("idpClientId", e.target.value)} placeholder="mcp-inspector" autoComplete="off" /></label>
+                  <label className="field"><span>Client ID</span><input required value={form.idpClientId} onChange={(e) => update("idpClientId", e.target.value)} placeholder="mcp-client" autoComplete="off" /></label>
                   {form.idpAuthMethod !== "none" && (
                     <label className="field"><span>Client secret</span><input type="password" required value={form.idpClientSecret} onChange={(e) => update("idpClientSecret", e.target.value)} placeholder={mode === "edit" ? "Re-enter to reconnect, not persisted" : "Not persisted"} autoComplete="new-password" /></label>
                   )}
@@ -1360,7 +1360,7 @@ function ConnectionPanel({
                   <small className="field-hint">The authorization server's issuer URL.</small>
                 </label>
                 <div className="field-grid">
-                  <label className="field"><span>Client ID</span><input required value={form.clientId} onChange={(e) => update("clientId", e.target.value)} placeholder="mcp-inspector" autoComplete="off" /></label>
+                  <label className="field"><span>Client ID</span><input required value={form.clientId} onChange={(e) => update("clientId", e.target.value)} placeholder="mcp-client" autoComplete="off" /></label>
                   <label className="field"><span>Client secret</span><input type="password" required value={form.clientSecret} onChange={(e) => update("clientSecret", e.target.value)} placeholder={mode === "edit" ? "Re-enter to reconnect, not persisted" : "Not persisted"} autoComplete="new-password" /></label>
                 </div>
                 {grant === "authorization_code" && (editingRedirect ? (

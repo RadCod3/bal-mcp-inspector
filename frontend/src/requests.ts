@@ -141,7 +141,7 @@ export function targetLabel(target: string) {
     identity_provider: "Identity provider",
     protected_resource: "Resource",
     user_agent: "Browser",
-    inspector: "Inspector",
+    inspector: "MCP client",
   };
   return labels[target] ?? target.replaceAll("_", " ");
 }

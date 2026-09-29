@@ -8,7 +8,7 @@ export interface ExportContext {
   fields: [string, string][];
 }
 
-const TOOL_NAME = "Ballerina MCP Inspector";
+const TOOL_NAME = "Ballerina MCP Client";
 
 const CAVEATS = [
   "Headers and bodies are as the Ballerina MCP client's observer reported them, not a wire capture.",
@@ -258,7 +258,7 @@ export function downloadLog(format: ExportFormat, events: InspectorEvent[], cont
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob([content], { type: `${type};charset=utf-8` }));
-  link.download = `mcp-inspector-${context.connectionId.slice(0, 8)}-${stamp}.${extension}`;
+  link.download = `mcp-client-${context.connectionId.slice(0, 8)}-${stamp}.${extension}`;
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(link.href), 0);
 }
