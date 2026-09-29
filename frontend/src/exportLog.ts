@@ -15,7 +15,7 @@ const CAVEATS = [
   "Credentials (authorization headers, cookies, client secrets and assertions, codes, tokens, PKCE verifiers) are replaced by [REDACTED].",
   "Header order and casing may differ from the wire, and headers added by the HTTP transport (Host, Content-Length) are not shown.",
   "JSON responses are re-serialized by the client; SSE responses show only the data field of each event.",
-  "Token requests are recorded as parameters and shown form-encoded here; token response bodies are not recorded, since they carry tokens.",
+  "Token responses show their token values as [REDACTED]. The inspector's own Identity Provider sign-in records only the response status and headers.",
 ];
 
 // Sequence numbers are gapless per connection, so a gap means events were cleared here or dropped by the backend.
