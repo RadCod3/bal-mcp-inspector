@@ -141,6 +141,8 @@ function harQuery(url: string | undefined) {
   }
 }
 
+const HAR_PAGE_ID = "connection";
+
 function harEntry(exchange: HttpExchange) {
   const { request, response } = exchange;
   const requestType = headerValue(request, "content-type") ?? "";
@@ -150,6 +152,7 @@ function harEntry(exchange: HttpExchange) {
   const comments = [request.eventMessage, ...exchange.notes.map((note) => note.eventMessage), ...exchange.errors.map((error) => error.eventMessage)]
     .filter(Boolean);
   return {
+    pageref: HAR_PAGE_ID,
     startedDateTime: request.timestamp,
     time,
     request: {
@@ -202,6 +205,13 @@ export function harLog(events: InspectorEvent[], context: ExportContext) {
       version: "1.2",
       creator: { name: TOOL_NAME, version: packageJson.version },
       comment,
+      // Optional in HAR 1.2, but Firefox's importer fails without it. One page stands for the connection.
+      pages: [{
+        startedDateTime: events[0]?.timestamp ?? new Date().toISOString(),
+        id: HAR_PAGE_ID,
+        title: `MCP connection ${context.connectionId}`,
+        pageTimings: { onContentLoad: -1, onLoad: -1 },
+      }],
       entries: buildExchanges(events).map(harEntry),
     },
   };
