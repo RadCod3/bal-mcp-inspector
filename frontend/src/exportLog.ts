@@ -8,7 +8,7 @@ export interface ExportContext {
   fields: [string, string][];
 }
 
-const TOOL_NAME = "Ballerina MCP Inspector";
+const TOOL_NAME = "WSO2 MCP Playground";
 
 const CAVEATS = [
   "Headers and bodies are as the Ballerina MCP client's observer reported them, not a wire capture.",

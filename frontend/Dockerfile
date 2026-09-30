@@ -8,7 +8,7 @@ RUN npm run build
 
 # Serve the bundle and proxy API calls to the backend
 FROM nginxinc/nginx-unprivileged:1.30-alpine
-# Base URL of the inspector backend, e.g. http://backend:8080 or https://inspector-api.example.com
+# Base URL of the playground backend, e.g. http://backend:8080 or https://inspector-api.example.com
 ENV BACKEND_URL=http://localhost:8080
 # Render the config into /tmp so the container works with a read-only root filesystem
 ENV NGINX_ENVSUBST_OUTPUT_DIR=/tmp

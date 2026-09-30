@@ -2,7 +2,7 @@ schemaVersion: 1.2
 
 endpoints:
   - name: inspector-api
-    displayName: MCP Inspector API
+    displayName: MCP Playground API
     service:
       # Root, so /api/v1/*, the CIMD documents under /oauth, and /callback are exposed
       basePath: /

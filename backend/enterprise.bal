@@ -8,7 +8,7 @@ import ballerina/url;
 import ballerina/uuid;
 
 // Enterprise-managed authorization (ID-JAG) runs in three legs:
-//   1. OpenID Connect sign-in at the Identity Provider, which yields the user's ID token. The inspector
+//   1. OpenID Connect sign-in at the Identity Provider, which yields the user's ID token. The playground
 //      performs it here, reusing the OAuth callback broker for the redirect.
 //   2. Token exchange of the ID token for an ID-JAG at the Identity Provider (mcp:exchangeIdTokenForIdJag).
 //   3. The jwt-bearer request at the resource authorization server, made by the MCP client.
@@ -61,7 +61,7 @@ isolated class IdTokenStore {
 
 final IdTokenStore idTokenStore = new;
 
-// The inspector's assertionProvider: signs the user in if needed (leg 1), then obtains an ID-JAG for the
+// The playground's assertionProvider: signs the user in if needed (leg 1), then obtains an ID-JAG for the
 // resource authorization server the MCP client discovered (leg 2).
 isolated function provideIdJag(string connectionId, readonly & IdentityProviderSettings settings,
         mcp:IdentityAssertionContext context) returns string|error {
