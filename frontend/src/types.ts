@@ -77,7 +77,8 @@ export type AuthConfig =
       clientId: string;
       issuer: string;
       redirectUri: string;
-      clientAuth: ClientSecretAuthentication;
+      // Omitted for a public client
+      clientAuth?: ClientSecretAuthentication;
       scopes: string[];
     }
   | {

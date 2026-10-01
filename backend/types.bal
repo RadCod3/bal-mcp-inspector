@@ -36,7 +36,8 @@ public type AuthorizationCodeAuthConfig record {|
     string clientId;
     string issuer;
     string redirectUri;
-    ClientSecretAuthentication clientAuth;
+    // Omitted for a public client
+    ClientSecretAuthentication clientAuth?;
     string[] scopes = [];
 |};
 
