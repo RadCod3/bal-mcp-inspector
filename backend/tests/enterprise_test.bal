@@ -96,7 +96,7 @@ function testIdentityProviderSignIn() returns error? {
     test:assertEquals(request["scope"], "openid email");
     test:assertEquals(request["code_challenge_method"], "S256");
 
-    // Act as the browser returning to the inspector's callback.
+    // Act as the browser returning to the playground's callback.
     lock {
         mockIdTokenNonce = request["nonce"] ?: "";
     }

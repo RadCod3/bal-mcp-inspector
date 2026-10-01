@@ -61,14 +61,14 @@ isolated function effectiveCimdRedirectUri() returns string {
 }
 
 isolated function listCimdProfiles() returns CimdProfileInfo[] {
-    // Shown so an authorization server operator can match the certificate the inspector presents.
+    // Shown so an authorization server operator can match the certificate the playground presents.
     string|error thumbprint = cimdMtlsCertificateThumbprint();
     string? certificateThumbprint = thumbprint is string ? thumbprint : ();
     return [
         {
             id: "jwks",
             label: "Signed JWT, key in the document",
-            description: "private_key_jwt. The document's jwks holds the inspector's public key.",
+            description: "private_key_jwt. The document's jwks holds the playground's public key.",
             url: cimdProfileUrl("jwks"),
             tokenEndpointAuthMethod: PRIVATE_KEY_JWT,
             redirectUri: effectiveCimdRedirectUri(),
@@ -77,7 +77,7 @@ isolated function listCimdProfiles() returns CimdProfileInfo[] {
         {
             id: "jwks_uri",
             label: "Signed JWT, key at a JWKS URL",
-            description: "private_key_jwt. The document's jwks_uri points to the inspector's public keys.",
+            description: "private_key_jwt. The document's jwks_uri points to the playground's public keys.",
             url: cimdProfileUrl("jwks_uri"),
             tokenEndpointAuthMethod: PRIVATE_KEY_JWT,
             redirectUri: effectiveCimdRedirectUri(),
@@ -86,7 +86,7 @@ isolated function listCimdProfiles() returns CimdProfileInfo[] {
         {
             id: "mtls_jwks",
             label: "Mutual TLS, certificate in the document",
-            description: "self_signed_tls_client_auth. The document's jwks holds the inspector's certificate.",
+            description: "self_signed_tls_client_auth. The document's jwks holds the playground's certificate.",
             url: cimdProfileUrl("mtls_jwks"),
             tokenEndpointAuthMethod: SELF_SIGNED_TLS_CLIENT_AUTH,
             redirectUri: effectiveCimdRedirectUri(),
@@ -96,7 +96,7 @@ isolated function listCimdProfiles() returns CimdProfileInfo[] {
         {
             id: "mtls_jwks_uri",
             label: "Mutual TLS, certificate at a JWKS URL",
-            description: "self_signed_tls_client_auth. The document's jwks_uri points to the inspector's certificate.",
+            description: "self_signed_tls_client_auth. The document's jwks_uri points to the playground's certificate.",
             url: cimdProfileUrl("mtls_jwks_uri"),
             tokenEndpointAuthMethod: SELF_SIGNED_TLS_CLIENT_AUTH,
             redirectUri: effectiveCimdRedirectUri(),
@@ -122,7 +122,7 @@ isolated function buildCimdDocument(CimdProfile profile, json? suppliedJwks = ()
     boolean mutualTls = profile is CimdMutualTlsProfile;
     map<json> document = {
         "client_id": cimdProfileUrl(profile),
-        "client_name": "Ballerina MCP Inspector",
+        "client_name": "WSO2 MCP Playground",
         "client_uri": normalizedCimdBaseUrl(),
         "redirect_uris": [effectiveCimdRedirectUri()],
         "grant_types": grantTypes,
@@ -161,10 +161,10 @@ isolated function loadCimdJwks() returns json|error {
 
 # Loads the JWK Set that publishes the mutual TLS certificate (RFC 8705 section 2.2.2). One of its
 # keys must carry the configured certificate as the first `x5c` entry, since that is the
-# certificate the inspector presents.
+# certificate the playground presents.
 #
 # + jwksPath - Location of the JWK Set
-# + certificatePath - Location of the PEM certificate the inspector presents
+# + certificatePath - Location of the PEM certificate the playground presents
 # + return - The JWK Set, or an error if it doesn't publish the configured certificate
 isolated function loadCimdMtlsJwks(string jwksPath = cimdMtlsJwksPath,
         string certificatePath = cimdMtlsCertificatePath) returns json|error {

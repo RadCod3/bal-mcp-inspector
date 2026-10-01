@@ -1,6 +1,6 @@
-# Ballerina MCP Inspector
+# WSO2 MCP Playground
 
-A small, ephemeral inspector for configuring a Ballerina MCP client, inspecting transport and OAuth events, and invoking tools.
+A small, ephemeral playground for configuring a Ballerina MCP client, inspecting transport and OAuth events, and invoking tools.
 
 ## Prerequisites
 
@@ -45,7 +45,7 @@ Public CIMD clients use the metadata document's registered callback. The default
 http://localhost:8080/callback
 ```
 
-The inspector exposes five backend-managed CIMD clients. Each client ID is the URL of its metadata document:
+The playground exposes five backend-managed CIMD clients. Each client ID is the URL of its metadata document:
 
 | Client | Metadata document | Token authentication |
 | --- | --- | --- |
@@ -73,7 +73,7 @@ The script prints the certificate's SHA-256 thumbprint (`x5t#S256`), which the c
 
 Copy `Config.example.toml` to `Config.toml` and set `cimdPublicBaseUrl` to the public HTTPS origin of the deployed backend. The backend itself hosts all five metadata documents, the public JWKS files, and the OAuth callback. By default the callback is `<cimdPublicBaseUrl>/callback`; `cimdRedirectUri` can override it when necessary. Authorization servers must be able to fetch the selected metadata document and, for the `jwks_uri` profiles, its JWKS endpoint. `Config.toml` and `backend/secrets/` are ignored by Git.
 
-The inspector offers this OAuth client matrix:
+The playground offers this OAuth client matrix:
 
 | Client registration | Grant | Token authentication |
 | --- | --- | --- |
@@ -88,7 +88,7 @@ The browser chooses only a CIMD profile. The RS256 signing key and the mutual TL
 
 ## Enterprise sign-in (ID-JAG)
 
-Enterprise sign-in implements MCP [Enterprise-Managed Authorization](https://github.com/modelcontextprotocol/ext-auth/blob/main/specification/stable/enterprise-managed-authorization.mdx). The form takes two registrations: the inspector's client at the enterprise identity provider, and its client at the MCP server's authorization server, which the MCP client discovers from the server's protected resource metadata. The flow has three legs, and the request log shows every request of each:
+Enterprise sign-in implements MCP [Enterprise-Managed Authorization](https://github.com/modelcontextprotocol/ext-auth/blob/main/specification/stable/enterprise-managed-authorization.mdx). The form takes two registrations: the playground's client at the enterprise identity provider, and its client at the MCP server's authorization server, which the MCP client discovers from the server's protected resource metadata. The flow has three legs, and the request log shows every request of each:
 
 1. **Sign-in at the identity provider.** When the MCP client first needs an access token, the backend starts an OpenID Connect authorization code sign-in with PKCE and shows its URL, like user sign-in. The identity provider redirects to the sign-in redirect URI, which defaults to the backend's OAuth callback and must be registered with the identity provider. The backend exchanges the code for the user's ID token and reuses it until it expires.
 2. **ID-JAG exchange at the identity provider.** The backend exchanges the ID token for an ID-JAG for the discovered authorization server (`mcp:exchangeIdTokenForIdJag`, RFC 8693).

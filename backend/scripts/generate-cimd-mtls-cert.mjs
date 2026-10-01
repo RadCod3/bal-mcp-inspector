@@ -23,7 +23,7 @@ mkdirSync(outputDirectory, { recursive: true });
 execFileSync("openssl", [
   "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-sha256",
   "-days", validityDays,
-  "-subj", "/CN=Ballerina MCP Inspector",
+  "-subj", "/CN=WSO2 MCP Playground",
   "-keyout", privateKeyPath,
   "-out", certificatePath,
 ], { stdio: "pipe" });

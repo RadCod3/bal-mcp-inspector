@@ -301,7 +301,7 @@ isolated function createConnection(string browserSessionId, CreateConnectionRequ
 isolated function connect(ConnectionSession session) {
     mcp:StreamableHttpClient mcpClient = session.mcpClient;
     mcp:ConnectionInfo|mcp:ClientError result = mcpClient->connect(
-        clientInfo = {name: "Ballerina MCP Inspector", version: "0.1.0"});
+        clientInfo = {name: "WSO2 MCP Playground", version: "0.1.0"});
     if result is mcp:ClientError {
         if session.status().state == "closed" {
             return;
