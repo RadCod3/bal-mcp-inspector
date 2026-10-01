@@ -248,7 +248,7 @@ function testPreRegisteredAuthorizationCodeAllowsPublicClient() {
         authType: "authorization_code",
         clientId: "client-1",
         issuer: "https://issuer.example",
-        redirectUri: "http://localhost:8080/api/v1/oauth/callback"
+        redirectUri: "http://localhost:8080/callback"
     };
     mcp:OAuthConfig config = createAuthorizationCodeOAuthConfig("connection-1", authorizationCode);
     mcp:ClientCredentialsGrant|mcp:AuthorizationCodeGrant|mcp:IdentityAssertionGrant grant = config.grant;
@@ -265,7 +265,7 @@ function testPreRegisteredOAuthUsesClientSecrets() {
         authType: "authorization_code",
         clientId: "client-1",
         issuer: "https://issuer.example",
-        redirectUri: "http://localhost:8080/api/v1/oauth/callback",
+        redirectUri: "http://localhost:8080/callback",
         clientAuth: {authMethod: mcp:CLIENT_SECRET_BASIC, clientSecret: "secret"}
     };
     mcp:OAuthConfig authorizationCodeConfig =
