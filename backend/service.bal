@@ -140,10 +140,6 @@ service /api/v1 on inspectorListener {
         _ = start expireEventJournal(connectionId);
         return <http:NoContent>{};
     }
-
-    resource isolated function get oauth/callback(http:Request request) returns string|http:BadRequest {
-        return completeOAuthCallback(request);
-    }
 }
 
 // Client ID URLs can be shown to users on consent screens, so they name the OAuth client type.

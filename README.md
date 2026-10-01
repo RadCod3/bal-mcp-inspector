@@ -33,17 +33,13 @@ npm run dev
 
 Open http://localhost:5173. Vite proxies `/api` requests to the backend on port 8080.
 
-For pre-registered authorization-code OAuth, register this callback URL with the provider:
-
-```text
-http://localhost:8080/api/v1/oauth/callback
-```
-
-Public CIMD clients use the metadata document's registered callback. The default backend configuration uses:
+Every OAuth redirect returns to one callback. For a pre-registered client or an enterprise identity provider, register this callback URL with the provider:
 
 ```text
 http://localhost:8080/callback
 ```
+
+CIMD clients publish the same callback in their metadata documents, built from `cimdPublicBaseUrl`.
 
 The playground exposes five backend-managed CIMD clients. Each client ID is the URL of its metadata document:
 
