@@ -129,14 +129,11 @@ final ConnectionRegistry connectionRegistry = new;
 
 isolated function createAuthorizationCodeOAuthConfig(string connectionId, AuthorizationCodeAuthConfig authConfig)
         returns mcp:OAuthConfig {
-    mcp:PreRegisteredClientConfig clientConfig = {
-        clientId: authConfig.clientId,
-        issuer: authConfig.issuer,
-        clientAuth: {
-            clientSecret: authConfig.clientAuth.clientSecret,
-            authMethod: authConfig.clientAuth.authMethod
-        }
-    };
+    mcp:PreRegisteredClientConfig clientConfig = {clientId: authConfig.clientId, issuer: authConfig.issuer};
+    ClientSecretAuthentication? clientAuth = authConfig?.clientAuth;
+    if clientAuth is ClientSecretAuthentication {
+        clientConfig.clientAuth = {clientSecret: clientAuth.clientSecret, authMethod: clientAuth.authMethod};
+    }
     mcp:AuthorizationRedirectHandler onRedirect = isolated function(string authorizationUrl) returns error? {
         return redirectHandler(connectionId, authorizationUrl);
     };

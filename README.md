@@ -77,7 +77,7 @@ The playground offers this OAuth client matrix:
 
 | Client registration | Grant | Token authentication |
 | --- | --- | --- |
-| Pre-registered | Authorization code | `client_secret_basic` or `client_secret_post` |
+| Pre-registered | Authorization code | `client_secret_basic`, `client_secret_post`, or `none` (public client) |
 | Pre-registered | Client credentials | `client_secret_basic` or `client_secret_post` |
 | CIMD with inline `jwks` | Authorization code or client credentials | `private_key_jwt` or `self_signed_tls_client_auth` |
 | CIMD with `jwks_uri` | Authorization code or client credentials | `private_key_jwt` or `self_signed_tls_client_auth` |

@@ -30,6 +30,7 @@ import type {
   CimdConfidentialProfile,
   CimdProfile,
   CimdProfileInfo,
+  ClientSecretAuthentication,
   ConnectionState,
   ConnectionStatus,
   CreateConnectionRequest,
@@ -104,18 +105,19 @@ interface ConnectionForm {
   issuer: string;
   redirectUri: string;
   scopes: string;
-  tokenAuthMethod: SecretMethod;
+  tokenAuthMethod: ClientAuthMethod;
   cimdProfile: CimdProfile;
   // The enterprise Identity Provider of an enterprise sign-in connection
   idpIssuer: string;
   idpClientId: string;
   idpClientSecret: string;
-  idpAuthMethod: IdpAuthMethod;
+  idpAuthMethod: ClientAuthMethod;
   idpRedirectUri: string;
   idpScopes: string;
 }
 
-type IdpAuthMethod = SecretMethod | "none";
+// "none" is a public client, which sends only its client ID
+type ClientAuthMethod = SecretMethod | "none";
 
 // In dev, callbacks go straight to the local backend; in deployments, nginx proxies them from this origin.
 const CALLBACK_ORIGIN = import.meta.env.DEV ? "http://localhost:8080" : window.location.origin;
@@ -152,13 +154,23 @@ function splitScopes(value: string) {
   return value.split(/[\s,]+/).map((scope) => scope.trim()).filter(Boolean);
 }
 
+// A public client sends no clientAuth at all.
+function clientAuthFields(method: ClientAuthMethod, clientSecret: string): { clientAuth?: ClientSecretAuthentication } {
+  return method === "none" ? {} : { clientAuth: { authMethod: method, clientSecret } };
+}
+
+// Grants other than authorization code always authenticate. The form moves them off "none" when
+// the grant changes, so the fallback only covers settings saved in an unexpected state.
+function confidentialClientAuth(form: ConnectionForm): ClientSecretAuthentication {
+  const authMethod = form.tokenAuthMethod === "none" ? "client_secret_basic" : form.tokenAuthMethod;
+  return { authMethod, clientSecret: form.clientSecret };
+}
+
 function identityProviderOf(form: ConnectionForm): IdentityProviderSettings {
   return {
     issuer: form.idpIssuer,
     clientId: form.idpClientId,
-    ...(form.idpAuthMethod === "none"
-      ? {}
-      : { clientAuth: { authMethod: form.idpAuthMethod, clientSecret: form.idpClientSecret } }),
+    ...clientAuthFields(form.idpAuthMethod, form.idpClientSecret),
     redirectUri: form.idpRedirectUri,
     loginScopes: splitScopes(form.idpScopes),
   };
@@ -172,7 +184,7 @@ function connectionRequest(form: ConnectionForm): CreateConnectionRequest {
       authType: "identity_assertion",
       clientId: form.clientId,
       issuer: form.issuer,
-      clientAuth: {authMethod: form.tokenAuthMethod, clientSecret: form.clientSecret},
+      clientAuth: confidentialClientAuth(form),
       identityProvider: identityProviderOf(form),
       scopes,
     };
@@ -189,7 +201,7 @@ function connectionRequest(form: ConnectionForm): CreateConnectionRequest {
       clientId: form.clientId,
       issuer: form.issuer,
       redirectUri: form.redirectUri,
-      clientAuth: {authMethod: form.tokenAuthMethod, clientSecret: form.clientSecret},
+      ...clientAuthFields(form.tokenAuthMethod, form.clientSecret),
       scopes,
     };
   } else if (form.authType === "cimd_authorization_code") {
@@ -203,7 +215,7 @@ function connectionRequest(form: ConnectionForm): CreateConnectionRequest {
       authType: "client_credentials",
       clientId: form.clientId,
       issuer: form.issuer,
-      clientAuth: {authMethod: form.tokenAuthMethod, clientSecret: form.clientSecret},
+      clientAuth: confidentialClientAuth(form),
       scopes,
     };
   } else if (form.authType === "cimd_client_credentials") {
@@ -263,14 +275,14 @@ const grantOptions: { value: Grant; label: string; hint: string; term?: string }
   },
 ];
 
-const idpAuthMethodLabels: Record<IdpAuthMethod, string> = {
+const clientAuthMethodLabels: Record<ClientAuthMethod, string> = {
   none: "None (public client)",
   client_secret_basic: "HTTP Basic",
   client_secret_post: "Request body",
 };
 
-const idpAuthMethodOptions = (Object.keys(idpAuthMethodLabels) as IdpAuthMethod[])
-  .map((value) => ({ value, label: idpAuthMethodLabels[value] }));
+const clientAuthMethodOptions = (Object.keys(clientAuthMethodLabels) as ClientAuthMethod[])
+  .map((value) => ({ value, label: clientAuthMethodLabels[value] }));
 
 const registrationOptions: { value: Registration; label: string; hint: string }[] = [
   {
@@ -285,13 +297,8 @@ const registrationOptions: { value: Registration; label: string; hint: string }[
   },
 ];
 
-const secretMethodLabels: Record<SecretMethod, string> = {
-  client_secret_basic: "HTTP Basic",
-  client_secret_post: "Request body",
-};
-
-const secretMethodOptions = (Object.keys(secretMethodLabels) as SecretMethod[])
-  .map((value) => ({ value, label: secretMethodLabels[value] }));
+// Only authorization code supports a public client; the other grants need a secret.
+const secretMethodOptions = clientAuthMethodOptions.filter((option) => option.value !== "none");
 
 // A CIMD profile answers two questions: how the client authenticates, and where a confidential
 // client's public key or certificate is published.
@@ -348,14 +355,14 @@ const settingFields: SettingField[] = [
   ["Authorization", (form) => grantOptions.find((option) => option.value === grantOf(form.authType))!.label, () => true],
   ["Identity provider issuer", (form) => form.idpIssuer, isIdentityAssertion],
   ["Identity provider client ID", (form) => form.idpClientId, isIdentityAssertion],
-  ["Identity provider authentication", (form) => idpAuthMethodLabels[form.idpAuthMethod], isIdentityAssertion],
+  ["Identity provider authentication", (form) => clientAuthMethodLabels[form.idpAuthMethod], isIdentityAssertion],
   ["Sign-in redirect URI", (form) => form.idpRedirectUri, isIdentityAssertion],
   ["Sign-in scopes", (form) => form.idpScopes.trim(), isIdentityAssertion],
   ["Client registration", (form) => registrationOptions.find((option) => option.value === registrationOf(form.authType))!.label, (type) => type !== "none"],
   ["Issuer", (form) => form.issuer, isPreregistered],
   ["Client ID", (form) => form.clientId, isPreregistered],
   ["Redirect URI", (form) => form.redirectUri, (type) => type === "authorization_code"],
-  ["Send client secret via", (form) => secretMethodLabels[form.tokenAuthMethod], isPreregistered],
+  ["Send client secret via", (form) => clientAuthMethodLabels[form.tokenAuthMethod], isPreregistered],
   ["Client authentication", (form, profiles) => profiles.find((profile) => profile.id === form.cimdProfile)?.label ?? form.cimdProfile, isCimdType],
   ["Scopes", (form) => form.scopes.trim(), (type) => type !== "none"],
 ];
@@ -413,7 +420,7 @@ function exportContextFor(
     fields.push(
       ["Authorization", `${grantLabel}, pre-registered client`],
       ["Client ID", auth.clientId],
-      ["Client authentication", auth.clientAuth.authMethod],
+      ["Client authentication", auth.clientAuth?.authMethod ?? "none"],
     );
     if (auth.issuer) fields.push(["Issuer", auth.issuer]);
     if (auth.authType === "authorization_code") fields.push(["Redirect URI", auth.redirectUri]);
@@ -1139,6 +1146,8 @@ function ConnectionPanel({
       authType: authTypeFor(nextGrant, nextRegistration),
       // A public client can't use client credentials, so machine-to-machine goes back to a confidential client.
       cimdProfile: nextGrant === "client_credentials" && current.cimdProfile === "none" ? confidentialProfile : current.cimdProfile,
+      // Likewise, only authorization code takes a pre-registered public client.
+      tokenAuthMethod: nextGrant !== "authorization_code" && current.tokenAuthMethod === "none" ? "client_secret_basic" : current.tokenAuthMethod,
     }));
   };
 
@@ -1244,7 +1253,7 @@ function ConnectionPanel({
                   <span id="idp-auth-label">Client authentication</span>
                   <Segmented
                     labelId="idp-auth-label"
-                    options={idpAuthMethodOptions}
+                    options={clientAuthMethodOptions}
                     value={form.idpAuthMethod}
                     onChange={(value) => update("idpAuthMethod", value)}
                   />
@@ -1361,7 +1370,9 @@ function ConnectionPanel({
                 </label>
                 <div className="field-grid">
                   <label className="field"><span>Client ID</span><input required value={form.clientId} onChange={(e) => update("clientId", e.target.value)} placeholder="mcp-inspector" autoComplete="off" /></label>
-                  <label className="field"><span>Client secret</span><input type="password" required value={form.clientSecret} onChange={(e) => update("clientSecret", e.target.value)} placeholder={mode === "edit" ? "Re-enter to reconnect, not persisted" : "Not persisted"} autoComplete="new-password" /></label>
+                  {form.tokenAuthMethod !== "none" && (
+                    <label className="field"><span>Client secret</span><input type="password" required value={form.clientSecret} onChange={(e) => update("clientSecret", e.target.value)} placeholder={mode === "edit" ? "Re-enter to reconnect, not persisted" : "Not persisted"} autoComplete="new-password" /></label>
+                  )}
                 </div>
                 {grant === "authorization_code" && (editingRedirect ? (
                   <label className="field">
@@ -1387,17 +1398,19 @@ function ConnectionPanel({
 
             {!isCimd && (
               <details className="advanced-block" open={advancedOpen}>
-                <summary>Advanced <small>Client secret sent via {secretMethodLabels[form.tokenAuthMethod]}</small></summary>
+                <summary>Advanced <small>{form.tokenAuthMethod === "none" ? "Public client, no secret" : `Client secret sent via ${clientAuthMethodLabels[form.tokenAuthMethod]}`}</small></summary>
                 <div className="field">
-                  <span id="secret-method-label">Send client secret via</span>
+                  <span id="secret-method-label">Client authentication</span>
                   <Segmented
                     labelId="secret-method-label"
-                    options={secretMethodOptions}
+                    options={grant === "authorization_code" ? clientAuthMethodOptions : secretMethodOptions}
                     value={form.tokenAuthMethod}
                     onChange={(value) => update("tokenAuthMethod", value)}
                   />
                   <small className="field-hint">
-                    {form.tokenAuthMethod === "client_secret_basic"
+                    {form.tokenAuthMethod === "none"
+                      ? "none: the client sends only its client ID, for a client registered without a secret. PKCE still protects the code exchange."
+                      : form.tokenAuthMethod === "client_secret_basic"
                       ? "client_secret_basic: sent in the Authorization header. Most servers expect this."
                       : "client_secret_post: sent as form fields in the token request body."}
                   </small>

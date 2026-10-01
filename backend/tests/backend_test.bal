@@ -243,6 +243,23 @@ function testCimdMtlsCertificateThumbprint() returns error? {
 }
 
 @test:Config {}
+function testPreRegisteredAuthorizationCodeAllowsPublicClient() {
+    AuthorizationCodeAuthConfig authorizationCode = {
+        authType: "authorization_code",
+        clientId: "client-1",
+        issuer: "https://issuer.example",
+        redirectUri: "http://localhost:8080/api/v1/oauth/callback"
+    };
+    mcp:OAuthConfig config = createAuthorizationCodeOAuthConfig("connection-1", authorizationCode);
+    mcp:ClientCredentialsGrant|mcp:AuthorizationCodeGrant|mcp:IdentityAssertionGrant grant = config.grant;
+    test:assertTrue(grant is mcp:AuthorizationCodeGrant);
+    if grant is mcp:AuthorizationCodeGrant {
+        test:assertTrue(grant.clientConfig is mcp:PreRegisteredClientConfig);
+        test:assertEquals(grant.clientConfig?.clientAuth, ());
+    }
+}
+
+@test:Config {}
 function testPreRegisteredOAuthUsesClientSecrets() {
     AuthorizationCodeAuthConfig authorizationCode = {
         authType: "authorization_code",
