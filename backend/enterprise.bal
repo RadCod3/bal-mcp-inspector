@@ -16,6 +16,8 @@ import ballerina/uuid;
 
 const IDENTITY_PROVIDER_TARGET = "identity_provider";
 const REDACTED = "[REDACTED]";
+// A token the playground decoded for the log. Not part of any HTTP exchange.
+const TOKEN_DECODED_EVENT = "playground.token_decoded";
 const PKCE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
 // An ID token is renewed this long before it expires.
 const int ID_TOKEN_EXPIRY_MARGIN_SECONDS = 30;
@@ -71,8 +73,30 @@ isolated function provideIdJag(string connectionId, readonly & IdentityProviderS
     if clientAuth is ClientSecretAuthentication {
         identityProvider.clientAuth = {clientSecret: clientAuth.clientSecret, authMethod: clientAuth.authMethod};
     }
-    return mcp:exchangeIdTokenForIdJag(idToken, context, identityProvider,
+    string idJag = check mcp:exchangeIdTokenForIdJag(idToken, context, identityProvider,
         new InspectorClientObserver(connectionId));
+    recordDecodedIdJag(connectionId, idJag);
+    return idJag;
+}
+
+// The observer records the token exchange with the ID-JAG redacted. This adds its header and payload as a
+// separate event, which the request log shows beside that exchange. The signature is dropped, so the
+// recorded values can't be presented as a credential.
+isolated function recordDecodedIdJag(string connectionId, string idJag) {
+    map<json>|error header = jwtPart(idJag, 0);
+    map<json>|error payload = jwtPart(idJag, 1);
+    string? eventBody = header is map<json> && payload is map<json>
+        ? {token: "ID-JAG", header, payload}.toJsonString() : ();
+    eventStore.append(connectionId, {
+        sequence: 0,
+        timestamp: "",
+        connectionId,
+        eventType: TOKEN_DECODED_EVENT,
+        eventTarget: IDENTITY_PROVIDER_TARGET,
+        eventBody,
+        eventMessage: eventBody is string ? "ID-JAG decoded by the playground; signature removed"
+            : "The ID-JAG is not a compact JWT, so it can't be decoded"
+    });
 }
 
 isolated function currentIdToken(string connectionId, readonly & IdentityProviderSettings settings)
@@ -323,14 +347,20 @@ isolated function toBase64Url(byte[] bytes) returns string {
 // Reads a JWT's claims without verifying it; used only to check the nonce and expiry of an ID token the
 // inspector received directly from the Identity Provider's token endpoint.
 isolated function jwtClaims(string jwt) returns map<json>|error {
+    map<json>|error claims = jwtPart(jwt, 1);
+    return claims is error ? error("The ID token is not a JWT.", claims) : claims;
+}
+
+// Decodes the header (0) or payload (1) of a compact JWT, without verifying it.
+isolated function jwtPart(string jwt, int index) returns map<json>|error {
     string[] parts = re `\.`.split(jwt);
     if parts.length() != 3 {
-        return error("The ID token is not a JWT.");
+        return error("The token is not a compact JWT.");
     }
-    string payload = regexp:replaceAll(re `_`, regexp:replaceAll(re `-`, parts[1], "+"), "/");
-    while payload.length() % 4 != 0 {
-        payload += "=";
+    string part = regexp:replaceAll(re `_`, regexp:replaceAll(re `-`, parts[index], "+"), "/");
+    while part.length() % 4 != 0 {
+        part += "=";
     }
-    json claims = check (check string:fromBytes(check array:fromBase64(payload))).fromJsonString();
-    return claims.ensureType();
+    json decoded = check (check string:fromBytes(check array:fromBase64(part))).fromJsonString();
+    return decoded.ensureType();
 }

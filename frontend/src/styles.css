@@ -576,6 +576,15 @@ h1, h2, h3, h4, p { margin: 0; }
 .detail-section.out h4 svg { color: var(--signal); }
 .detail-section.in h4 svg { color: var(--harbor); }
 .detail-section-title span { color: var(--ink-3); font-size: var(--text-xs); }
+/* Added by the playground, not recorded traffic */
+.detail-section.decoded, .detail-section + .detail-section.decoded {
+  padding: 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+}
+.detail-section.decoded h4 svg { color: var(--violet); }
+.decoded-note { color: var(--ink-2); font-size: var(--text-sm); line-height: 1.5; }
 
 .detail-block { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); overflow: hidden; }
 .detail-block > summary, .detail-block-title {
