@@ -23,7 +23,7 @@ import { api } from "./api";
 import { CodeBlock, CopyButton } from "./components/CodeBlock";
 import { RequestLog } from "./components/RequestLog";
 import type { ExportContext } from "./exportLog";
-import { hostOf } from "./requests";
+import { hostOf, TOKEN_DECODED_EVENT } from "./requests";
 import { routePath, useRoute, type View } from "./router";
 import type {
   AuthConfig,
@@ -72,6 +72,7 @@ const EVENT_TYPES = [
   "oauth.authorization_required",
   "tools.list_failed",
   "tools.call_failed",
+  TOKEN_DECODED_EVENT,
 ];
 
 type AuthType = "none" | "authorization_code" | "client_credentials" | "identity_assertion" |

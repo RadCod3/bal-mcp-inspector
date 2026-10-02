@@ -1,6 +1,6 @@
 import packageJson from "../package.json";
 import type { InspectorEvent } from "./types";
-import { buildExchanges, durationMs, formParams, headerValue, HttpExchange, targetLabel } from "./requests";
+import { buildExchanges, decodedToken, durationMs, formParams, headerValue, HttpExchange, targetLabel } from "./requests";
 
 // Facts about the connection that a reader of an exported log needs to match it to a test run.
 export interface ExportContext {
@@ -16,6 +16,7 @@ const CAVEATS = [
   "Header order and casing may differ from the wire, and headers added by the HTTP transport (Host, Content-Length) are not shown.",
   "JSON responses are re-serialized by the client; SSE responses show only the data field of each event.",
   "Token requests are shown form-encoded, and token responses with their token values as [REDACTED].",
+  "An issued ID-JAG is also shown decoded (header and payload, signature removed) in comments added by the playground, outside the recorded traffic.",
 ];
 
 // Sequence numbers are gapless per connection, so a gap means events were cleared here or dropped by the backend.
@@ -71,11 +72,31 @@ function withBody(lines: string[], body: string | undefined) {
   return body ? [...lines, "", body.replace(/\n+$/, "")] : lines;
 }
 
+// Tokens the playground decoded, as comment lines kept apart from the recorded request and response.
+function decodedTokenLines(exchange: HttpExchange): string[] {
+  return exchange.decoded.flatMap((event) => {
+    const decoded = decodedToken(event);
+    if (!decoded) return [`# ${event.eventMessage ?? "The token could not be decoded."}`];
+    return [
+      `# ${decoded.token} in access_token (added by the playground: signature removed, header and payload decoded)`,
+      `# header:  ${JSON.stringify(decoded.header)}`,
+      `# payload: ${JSON.stringify(decoded.payload)}`,
+    ];
+  });
+}
+
+function assertionNote(exchange: HttpExchange) {
+  return exchange.assertionFrom === undefined ? undefined
+    : `assertion is the ID-JAG decoded in #${exchange.assertionFrom} (added by the playground)`;
+}
+
 function exchangeLines(exchange: HttpExchange): string[] {
   const { request, response } = exchange;
   const target = targetLabel(request.eventTarget);
   const lines = [`>>> #${request.sequence}  ${request.timestamp}  to ${target}`];
   if (request.eventMessage) lines.push(`# ${request.eventMessage}`);
+  const assertion = assertionNote(exchange);
+  if (assertion) lines.push(`# ${assertion}`);
   lines.push(...withBody([`${request.httpMethod ?? "HTTP"} ${request.eventUrl ?? ""}`, ...headerLines(request)], requestBodyText(request)));
   lines.push("");
 
@@ -86,6 +107,8 @@ function exchangeLines(exchange: HttpExchange): string[] {
     for (const note of exchange.notes) lines.push(`# ${note.eventType}: ${note.eventMessage ?? ""}`);
     const statusLine = `HTTP ${response.statusCode ?? ""}`.trim();
     lines.push(...withBody([statusLine, ...headerLines(response)], responseBodyText(exchange)));
+    const decoded = decodedTokenLines(exchange);
+    if (decoded.length > 0) lines.push("", ...decoded);
   } else {
     lines.push("<<< (no response)");
   }
@@ -101,7 +124,8 @@ export function exchangeTranscript(exchange: HttpExchange) {
 function absorbedSequences(exchanges: HttpExchange[]) {
   const sequences = new Set<number>();
   for (const exchange of exchanges) {
-    for (const event of [exchange.request, exchange.response, ...exchange.bodies, ...exchange.errors, ...exchange.notes]) {
+    for (const event of [exchange.request, exchange.response, ...exchange.bodies, ...exchange.errors, ...exchange.notes,
+      ...exchange.decoded]) {
       if (event) sequences.add(event.sequence);
     }
   }
@@ -161,9 +185,11 @@ function harEntry(exchange: HttpExchange) {
   const time = durationMs(exchange) ?? 0;
   const comments = [
     request.eventMessage,
+    assertionNote(exchange),
     response?.eventMessage,
     ...exchange.notes.map((note) => note.eventMessage),
     ...exchange.errors.map((error) => error.eventMessage),
+    ...decodedTokenLines(exchange).map((line) => line.replace(/^# /, "")),
   ].filter(Boolean);
   return {
     pageref: HAR_PAGE_ID,

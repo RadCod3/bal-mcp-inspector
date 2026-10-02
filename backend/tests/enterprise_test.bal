@@ -241,3 +241,35 @@ function testIdTokenStoreExpiry() {
     idTokenStore.remove("ema-expiry");
     test:assertEquals(idTokenStore.valid("ema-expiry"), ());
 }
+
+@test:Config {}
+function testDecodedIdJagOmitsTheSignature() returns error? {
+    string connectionId = "ema-decoded-id-jag";
+    eventStore.open(connectionId);
+    string signature = "c2lnbmF0dXJlLXRoYXQtbXVzdC1ub3QtYmUtbG9nZ2Vk";
+    string encodedHeader = toBase64Url({alg: "RS256", typ: "oauth-id-jag+jwt"}.toJsonString().toBytes());
+    string encodedPayload = toBase64Url({iss: MOCK_IDP_ISSUER, aud: "https://as.example", client_id: "mcp-client"}
+        .toJsonString().toBytes());
+    string idJag = string `${encodedHeader}.${encodedPayload}.${signature}`;
+    recordDecodedIdJag(connectionId, idJag);
+    recordDecodedIdJag(connectionId, "not-a-jwt");
+
+    readonly & InspectorEvent[] events = eventStore.after(connectionId, 0) ?: [];
+    eventStore.remove(connectionId);
+    test:assertEquals(events.length(), 2);
+    InspectorEvent decoded = events[0];
+    test:assertEquals(decoded.eventType, TOKEN_DECODED_EVENT);
+    test:assertEquals(decoded.eventTarget, IDENTITY_PROVIDER_TARGET);
+    map<json> body = check (check (decoded.eventBody ?: "").fromJsonString()).ensureType();
+    test:assertEquals(body["token"], "ID-JAG");
+    test:assertEquals(body["header"], {alg: "RS256", typ: "oauth-id-jag+jwt"});
+    test:assertEquals(body["payload"], {iss: MOCK_IDP_ISSUER, aud: "https://as.example", client_id: "mcp-client"});
+    // Neither the token nor its signature is recorded.
+    string recorded = events.toJsonString();
+    test:assertFalse(recorded.includes(signature));
+    test:assertFalse(recorded.includes(idJag));
+    test:assertFalse(recorded.includes(encodedPayload));
+
+    test:assertEquals(events[1].eventBody, ());
+    test:assertFalse(events.toJsonString().includes("not-a-jwt"));
+}

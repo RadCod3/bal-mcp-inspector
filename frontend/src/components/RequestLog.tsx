@@ -1,9 +1,10 @@
-import { ArrowDown, ArrowDownLeft, ArrowUpRight, CircleAlert, Download, Info, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowDownLeft, ArrowUpRight, CircleAlert, Download, Info, KeyRound, Search, Trash2, X } from "lucide-react";
 import { KeyboardEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { downloadLog, EXPORT_FORMATS, ExportContext, exchangeTranscript } from "../exportLog";
 import type { InspectorEvent } from "../types";
 import {
   buildExchanges,
+  decodedToken,
   durationMs,
   exchangeMatches,
   exchangeStatus,
@@ -336,6 +337,12 @@ function RequestDetail({ exchange, raw, setRaw, onClose }: {
               <span>{event.eventMessage ?? "The server responded with an OAuth authorization challenge."}</span>
             </div>
           ))}
+          {exchange.assertionFrom !== undefined && (
+            <div className="callout info">
+              <KeyRound size={16} />
+              <span>The assertion is the ID-JAG issued in #{exchange.assertionFrom}, shown decoded there.</span>
+            </div>
+          )}
 
           <DetailSection title="Request" direction="out" aside={`${exchange.request.httpMethod ?? "HTTP"} to ${hostOf(url)}`}>
             <Headers event={exchange.request} />
@@ -365,6 +372,8 @@ function RequestDetail({ exchange, raw, setRaw, onClose }: {
               <p className="empty-note">No response received yet.</p>
             )}
           </DetailSection>
+
+          {exchange.decoded.map((event) => <DecodedTokenSection key={event.sequence} event={event} />)}
         </div>
       )}
     </aside>
@@ -384,6 +393,32 @@ function DetailSection({ title, direction, aside, children }: {
         {aside && <span>{aside}</span>}
       </div>
       {children}
+    </section>
+  );
+}
+
+// A token from the response that the playground decoded. Styled apart from Request and Response because it
+// was neither sent nor received.
+function DecodedTokenSection({ event }: { event: InspectorEvent }) {
+  const decoded = decodedToken(event);
+  return (
+    <section className="detail-section decoded">
+      <div className="detail-section-title">
+        <h4><KeyRound size={16} />Decoded {decoded?.token ?? "token"}</h4>
+        <span>added by the playground</span>
+      </div>
+      {decoded ? (
+        <>
+          <p className="decoded-note">
+            Decoded from access_token in the response above. It was not sent or received in this form, and the
+            signature is removed.
+          </p>
+          <Block title="Header"><CodeBlock value={JSON.stringify(decoded.header)} /></Block>
+          <Block title="Payload"><CodeBlock value={JSON.stringify(decoded.payload)} /></Block>
+        </>
+      ) : (
+        <p className="decoded-note">{event.eventMessage ?? "The token could not be decoded."}</p>
+      )}
     </section>
   );
 }

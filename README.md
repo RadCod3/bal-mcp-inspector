@@ -90,7 +90,7 @@ Enterprise sign-in implements MCP [Enterprise-Managed Authorization](https://git
 2. **ID-JAG exchange at the identity provider.** The backend exchanges the ID token for an ID-JAG for the discovered authorization server (`mcp:exchangeIdTokenForIdJag`, RFC 8693).
 3. **Access token at the MCP authorization server.** The MCP client presents the ID-JAG (RFC 7523) and uses the returned access token.
 
-Identity provider requests appear under the **Identity provider** target. Authorization codes, PKCE verifiers, client secrets, the ID token, and the ID-JAG are redacted from the log.
+Identity provider requests appear under the **Identity provider** target. Authorization codes, PKCE verifiers, client secrets, the ID token, and the ID-JAG are redacted from the log. So the claims can still be reviewed, the playground decodes each issued ID-JAG and shows its header and payload, with the signature removed, next to the token exchange that issued it. It appears as a separate "added by the playground" section in the request log and as comment lines in the Raw view and exports, so the recorded requests and responses stay as reported.
 
 ## Session behavior
 
