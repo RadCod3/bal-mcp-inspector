@@ -6,17 +6,20 @@ isolated class ConnectionSession {
     final string connectionId;
     final string serverUrl;
     final mcp:StreamableHttpClient mcpClient;
+    // The CIMD client the connection authorizes as, if any
+    final CimdProfile? cimdProfile;
     private ConnectionState state = "connecting";
     private string? errorMessage = ();
     private (readonly & mcp:ConnectionInfo)? connectionInfo = ();
     private (readonly & mcp:ListToolsResult)? tools = ();
 
     isolated function init(string browserSessionId, string connectionId, string serverUrl,
-            mcp:StreamableHttpClient mcpClient) {
+            mcp:StreamableHttpClient mcpClient, CimdProfile? cimdProfile = ()) {
         self.browserSessionId = browserSessionId;
         self.connectionId = connectionId;
         self.serverUrl = serverUrl;
         self.mcpClient = mcpClient;
+        self.cimdProfile = cimdProfile;
     }
 
     isolated function status() returns ConnectionStatus {
@@ -101,6 +104,21 @@ isolated class ConnectionRegistry {
             }
         }
         return statuses;
+    }
+
+    // Connections that aren't closed and authorize as one of the given CIMD clients
+    isolated function usingCimdProfiles(CimdProfile[] profiles) returns ConnectionSession[] {
+        ConnectionSession[] sessions = [];
+        foreach string connectionId in self.connectionIds() {
+            ConnectionSession? session = self.get(connectionId);
+            if session is ConnectionSession && session.status().state != "closed" {
+                CimdProfile? profile = session.cimdProfile;
+                if profile is CimdProfile && profiles.indexOf(profile) is int {
+                    sessions.push(session);
+                }
+            }
+        }
+        return sessions;
     }
 
     isolated function setState(string connectionId, ConnectionState state, string? errorMessage = ()) {
@@ -287,8 +305,10 @@ isolated function createConnection(string browserSessionId, CreateConnectionRequ
     } else {
         return error("Unsupported authorization configuration");
     }
+    CimdProfile? cimdProfile = selectedAuth is CimdAuthorizationCodeAuthConfig|CimdClientCredentialsAuthConfig|
+        CimdIdentityAssertionAuthConfig ? selectedAuth.profile : ();
     eventStore.open(connectionId);
-    ConnectionSession session = new (browserSessionId, connectionId, request.serverUrl, mcpClient);
+    ConnectionSession session = new (browserSessionId, connectionId, request.serverUrl, mcpClient, cimdProfile);
     connectionRegistry.add(session);
     appendLifecycleEvent(connectionId, "connection.connecting", "connecting");
     _ = start connect(session);

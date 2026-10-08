@@ -69,6 +69,8 @@ The script prints the certificate's SHA-256 thumbprint (`x5t#S256`), which the c
 
 Copy `Config.example.toml` to `Config.toml` and set `cimdPublicBaseUrl` to the public HTTPS origin of the deployed backend. The backend itself hosts all five metadata documents, the public JWKS files, and the OAuth callback. By default the callback is `<cimdPublicBaseUrl>/callback`; `cimdRedirectUri` can override it when necessary. Authorization servers must be able to fetch the selected metadata document and, for the `jwks_uri` profiles, its JWKS endpoint. `Config.toml` and `backend/secrets/` are ignored by Git.
 
+Each fetch of a metadata document or JWKS is logged with its user agent and `X-Forwarded-For`, and added to the log of every open connection using that client as a `playground.cimd_fetched` event, so a transcript shows the authorization server dereferencing the client's metadata. When an issued access token is a JWT, the `oauth.token_acquired` event lists its identifying claims (`iss`, `aud`, `client_id`, `scope`, `jti`, `exp`, ...), read without verification, so the token can be matched against the authorization server's records.
+
 The playground offers this OAuth client matrix:
 
 | Client registration | Grant | Token authentication |

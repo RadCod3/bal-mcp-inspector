@@ -144,39 +144,45 @@ service /api/v1 on inspectorListener {
 
 // Client ID URLs can be shown to users on consent screens, so they name the OAuth client type.
 service /oauth on inspectorListener {
-    resource isolated function get confidential\-client\.json() returns json|http:InternalServerError {
-        return cimdDocumentResponse("jwks");
+    resource isolated function get confidential\-client\.json(http:Request request)
+            returns json|http:InternalServerError {
+        return cimdDocumentResponse("jwks", request);
     }
 
-    resource isolated function get confidential\-client\-jwks\-uri\.json() returns json|http:InternalServerError {
-        return cimdDocumentResponse("jwks_uri");
+    resource isolated function get confidential\-client\-jwks\-uri\.json(http:Request request)
+            returns json|http:InternalServerError {
+        return cimdDocumentResponse("jwks_uri", request);
     }
 
-    resource isolated function get mtls\-client\.json() returns json|http:InternalServerError {
-        return cimdDocumentResponse("mtls_jwks");
+    resource isolated function get mtls\-client\.json(http:Request request) returns json|http:InternalServerError {
+        return cimdDocumentResponse("mtls_jwks", request);
     }
 
-    resource isolated function get mtls\-client\-jwks\-uri\.json() returns json|http:InternalServerError {
-        return cimdDocumentResponse("mtls_jwks_uri");
+    resource isolated function get mtls\-client\-jwks\-uri\.json(http:Request request)
+            returns json|http:InternalServerError {
+        return cimdDocumentResponse("mtls_jwks_uri", request);
     }
 
-    resource isolated function get public\-client\.json() returns json|http:InternalServerError {
-        return cimdDocumentResponse("none");
+    resource isolated function get public\-client\.json(http:Request request) returns json|http:InternalServerError {
+        return cimdDocumentResponse("none", request);
     }
 
-    resource isolated function get jwks\.json() returns json|http:InternalServerError {
-        return jwksResponse(loadCimdJwks());
+    resource isolated function get jwks\.json(http:Request request) returns json|http:InternalServerError {
+        return jwksResponse(loadCimdJwks(), cimdPublicKeysUrl(), "jwks_uri", request);
     }
 
-    resource isolated function get mtls\-jwks\.json() returns json|http:InternalServerError {
-        return jwksResponse(loadCimdMtlsJwks());
+    resource isolated function get mtls\-jwks\.json(http:Request request) returns json|http:InternalServerError {
+        return jwksResponse(loadCimdMtlsJwks(), cimdMtlsCertificatesUrl(), "mtls_jwks_uri", request);
     }
 }
 
-isolated function jwksResponse(json|error result) returns json|http:InternalServerError {
+isolated function jwksResponse(json|error result, string url, CimdProfile profile, http:Request request)
+        returns json|http:InternalServerError {
     if result is error {
+        recordCimdFetch(request, url, profile, http:STATUS_INTERNAL_SERVER_ERROR);
         return <http:InternalServerError>{body: <ApiError>{message: result.message()}};
     }
+    recordCimdFetch(request, url, profile, http:STATUS_OK);
     return result;
 }
 
@@ -186,11 +192,14 @@ service /callback on inspectorListener {
     }
 }
 
-isolated function cimdDocumentResponse(CimdProfile profile) returns json|http:InternalServerError {
+isolated function cimdDocumentResponse(CimdProfile profile, http:Request request)
+        returns json|http:InternalServerError {
     json|error result = buildCimdDocument(profile);
     if result is error {
+        recordCimdFetch(request, cimdProfileUrl(profile), profile, http:STATUS_INTERNAL_SERVER_ERROR);
         return <http:InternalServerError>{body: <ApiError>{message: result.message()}};
     }
+    recordCimdFetch(request, cimdProfileUrl(profile), profile, http:STATUS_OK);
     return result;
 }
 

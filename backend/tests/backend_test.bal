@@ -1,3 +1,4 @@
+import ballerina/http;
 import ballerina/io;
 import ballerina/mcp;
 import ballerina/test;
@@ -94,6 +95,41 @@ function testLifecycleEventsAreSequenced() {
         test:assertEquals(events[0].eventType, "connection.connected");
     }
     eventStore.close(connectionId);
+}
+
+@test:Config {}
+function testCimdFetchIsRecordedForConnectionsUsingTheClient() returns error? {
+    mcp:StreamableHttpClient mcpClient = check new ("http://localhost:65534/mcp");
+    ConnectionSession jwksUriSession = new ("browser-session-1234", "cimd-fetch-jwks-uri",
+        "http://localhost:65534/mcp", mcpClient, "jwks_uri");
+    ConnectionSession publicSession = new ("browser-session-1234", "cimd-fetch-public",
+        "http://localhost:65534/mcp", mcpClient, "none");
+    foreach ConnectionSession session in [jwksUriSession, publicSession] {
+        eventStore.open(session.connectionId);
+        connectionRegistry.add(session);
+    }
+    http:Request request = new;
+    request.setHeader("User-Agent", "Example-AS/1.0");
+    request.setHeader("X-Forwarded-For", "203.0.113.7");
+
+    recordCimdFetch(request, cimdPublicKeysUrl(), "jwks_uri", http:STATUS_OK);
+
+    readonly & InspectorEvent[]? events = eventStore.after(jwksUriSession.connectionId, 0);
+    test:assertTrue(events is readonly & InspectorEvent[]);
+    if events is readonly & InspectorEvent[] {
+        test:assertEquals(events.length(), 1);
+        test:assertEquals(events[0].eventType, CIMD_FETCHED_EVENT);
+        test:assertEquals(events[0].eventUrl, cimdPublicKeysUrl());
+        test:assertEquals(events[0].statusCode, 200);
+        test:assertEquals(events[0].eventHeaders["user-agent"], "Example-AS/1.0");
+        test:assertEquals(events[0].eventMessage,
+            "Received by the playground; user agent \"Example-AS/1.0\", forwarded for 203.0.113.7");
+    }
+    test:assertEquals(eventStore.after(publicSession.connectionId, 0), []);
+    foreach ConnectionSession session in [jwksUriSession, publicSession] {
+        _ = connectionRegistry.remove(session.connectionId);
+        eventStore.remove(session.connectionId);
+    }
 }
 
 @test:Config {}

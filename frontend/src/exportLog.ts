@@ -17,6 +17,8 @@ const CAVEATS = [
   "JSON responses are re-serialized by the client; SSE responses show only the data field of each event.",
   "Token requests are shown form-encoded, and token responses with their token values as [REDACTED].",
   "An issued ID-JAG is also shown decoded (header and payload, signature removed) in comments added by the playground, outside the recorded traffic.",
+  "When an access token is a JWT, oauth.token_acquired lists its identifying claims, read without verification.",
+  "playground.cimd_fetched lines are fetches of the client's CIMD document or key set received by the playground, not requests the client sent.",
 ];
 
 // Sequence numbers are gapless per connection, so a gap means events were cleared here or dropped by the backend.

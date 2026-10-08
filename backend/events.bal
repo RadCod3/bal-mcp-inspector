@@ -1,5 +1,6 @@
 import ballerina/http;
 import ballerina/lang.runtime;
+import ballerina/log;
 import ballerina/mcp;
 import ballerina/time;
 
@@ -226,4 +227,48 @@ isolated function appendLifecycleEvent(string connectionId, string eventType, Co
         eventMessage: eventMessage ?: state,
         authorizationUrl
     });
+}
+
+// An authorization server fetched one of the playground's CIMD documents or key sets. The fetch is received
+// by the playground, so it is not part of any exchange the client made.
+const CIMD_FETCHED_EVENT = "playground.cimd_fetched";
+
+// Request headers recorded for a CIMD fetch: who fetched it, and any request ID a proxy assigned
+final readonly & string[] CIMD_FETCH_HEADERS =
+    ["user-agent", "x-forwarded-for", "forwarded", "x-real-ip", "x-request-id", "accept"];
+
+// Logs a fetch of a CIMD document or key set, and adds it to the log of each open connection that
+// authorizes as that client. It then shows the authorization server dereferencing the client's metadata.
+isolated function recordCimdFetch(http:Request request, string url, CimdProfile profile, int statusCode) {
+    map<string|string[]> headers = {};
+    foreach string name in CIMD_FETCH_HEADERS {
+        string[]|http:HeaderNotFoundError values = request.getHeaders(name);
+        if values is string[] {
+            headers[name] = values.length() == 1 ? values[0] : values;
+        }
+    }
+    string userAgent = firstHeaderValue(headers, "user-agent") ?: "not sent";
+    string forwardedFor = firstHeaderValue(headers, "x-forwarded-for") ?: "not sent";
+    log:printInfo("CIMD resource fetched", url = url, statusCode = statusCode, userAgent = userAgent,
+        forwardedFor = forwardedFor, requestId = firstHeaderValue(headers, "x-request-id") ?: "");
+    string eventMessage = string `Received by the playground; user agent "${userAgent}", forwarded for ${forwardedFor}`;
+    foreach ConnectionSession session in connectionRegistry.usingCimdProfiles([profile]) {
+        eventStore.append(session.connectionId, {
+            sequence: 0,
+            timestamp: "",
+            connectionId: session.connectionId,
+            eventType: CIMD_FETCHED_EVENT,
+            eventTarget: "authorization_server",
+            eventUrl: url,
+            httpMethod: "GET",
+            statusCode,
+            eventHeaders: headers,
+            eventMessage
+        });
+    }
+}
+
+isolated function firstHeaderValue(map<string|string[]> headers, string name) returns string? {
+    string|string[]? value = headers[name];
+    return value is string[] ? (value.length() > 0 ? value[0] : ()) : value;
 }

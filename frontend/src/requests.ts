@@ -17,6 +17,8 @@ export type StatusTone = "success" | "info" | "warning" | "danger" | "pending";
 const ERROR_EVENTS = ["client.error", "tools.list_failed", "tools.call_failed"];
 
 export const TOKEN_DECODED_EVENT = "playground.token_decoded";
+// The playground received a fetch of its CIMD document or key set, such as from the authorization server.
+export const CIMD_FETCHED_EVENT = "playground.cimd_fetched";
 const ID_JAG_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:id-jag";
 
 function issuesIdJag(exchange: HttpExchange) {

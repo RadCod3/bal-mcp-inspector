@@ -23,7 +23,7 @@ import { api } from "./api";
 import { CodeBlock, CopyButton } from "./components/CodeBlock";
 import { RequestLog } from "./components/RequestLog";
 import type { ExportContext } from "./exportLog";
-import { hostOf, TOKEN_DECODED_EVENT } from "./requests";
+import { CIMD_FETCHED_EVENT, hostOf, TOKEN_DECODED_EVENT } from "./requests";
 import { routePath, useRoute, type View } from "./router";
 import type {
   AuthConfig,
@@ -73,6 +73,7 @@ const EVENT_TYPES = [
   "tools.list_failed",
   "tools.call_failed",
   TOKEN_DECODED_EVENT,
+  CIMD_FETCHED_EVENT,
 ];
 
 type AuthType = "none" | "authorization_code" | "client_credentials" | "identity_assertion" |
