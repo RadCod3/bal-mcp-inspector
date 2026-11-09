@@ -1,4 +1,7 @@
+import ballerina/lang.runtime;
+import ballerina/log;
 import ballerina/mcp;
+import ballerina/time;
 import ballerina/uuid;
 
 isolated class ConnectionSession {
@@ -64,11 +67,15 @@ isolated class ConnectionSession {
 
 isolated class ConnectionRegistry {
     private map<ConnectionSession> sessions = {};
+    // When each browser session last called the API, in monotonic seconds. An open tab polls its connection,
+    // so a browser session that stops calling has been closed.
+    private map<decimal> lastActiveByBrowserSession = {};
 
     isolated function add(ConnectionSession session) {
         lock {
             self.sessions[session.connectionId] = session;
         }
+        self.touch(session.browserSessionId);
     }
 
     isolated function get(string connectionId) returns ConnectionSession? {
@@ -77,12 +84,55 @@ isolated class ConnectionRegistry {
         }
     }
 
+    // Looks up a browser session's connection, and counts the lookup as activity by that browser session
     isolated function getOwned(string browserSessionId, string connectionId) returns ConnectionSession? {
         ConnectionSession? session = self.get(connectionId);
         if session is ConnectionSession && session.browserSessionId == browserSessionId {
+            self.touch(browserSessionId);
             return session;
         }
         return ();
+    }
+
+    isolated function touch(string browserSessionId) {
+        lock {
+            self.lastActiveByBrowserSession[browserSessionId] = time:monotonicNow();
+        }
+    }
+
+    # Returns the connections of browser sessions that have not called the API for the given time,
+    # and forgets browser sessions that no longer have connections.
+    #
+    # + idleSeconds - How long a browser session must be inactive
+    # + return - The idle connections
+    isolated function idle(decimal idleSeconds) returns ConnectionSession[] {
+        decimal cutoff = time:monotonicNow() - idleSeconds;
+        readonly & string[] idleIds;
+        lock {
+            string[] ids = [];
+            map<boolean> withConnections = {};
+            foreach ConnectionSession session in self.sessions {
+                withConnections[session.browserSessionId] = true;
+                decimal lastActive = self.lastActiveByBrowserSession[session.browserSessionId] ?: 0d;
+                if lastActive < cutoff {
+                    ids.push(session.connectionId);
+                }
+            }
+            foreach string browserSessionId in self.lastActiveByBrowserSession.keys() {
+                if !withConnections.hasKey(browserSessionId) {
+                    _ = self.lastActiveByBrowserSession.remove(browserSessionId);
+                }
+            }
+            idleIds = ids.cloneReadOnly();
+        }
+        ConnectionSession[] idleSessions = [];
+        foreach string connectionId in idleIds {
+            ConnectionSession? session = self.get(connectionId);
+            if session is ConnectionSession {
+                idleSessions.push(session);
+            }
+        }
+        return idleSessions;
     }
 
     isolated function connectionIds() returns readonly & string[] {
@@ -132,14 +182,6 @@ isolated class ConnectionRegistry {
         lock {
             return self.sessions.remove(connectionId);
         }
-    }
-
-    isolated function removeOwned(string browserSessionId, string connectionId) returns ConnectionSession? {
-        ConnectionSession? session = self.getOwned(browserSessionId, connectionId);
-        if session is () {
-            return ();
-        }
-        return self.remove(connectionId);
     }
 }
 
@@ -334,6 +376,54 @@ isolated function connect(ConnectionSession session) {
     }
     session.setConnected(result);
     appendLifecycleEvent(session.connectionId, "connection.connected", "connected");
+}
+
+# Forgets a closed connection. Its event log stays readable for `closedEventRetentionSeconds`.
+#
+# + session - The closed connection
+isolated function releaseConnection(ConnectionSession session) {
+    idTokenStore.remove(session.connectionId);
+    _ = connectionRegistry.remove(session.connectionId);
+    eventStore.close(session.connectionId);
+    _ = start expireEventJournal(session.connectionId);
+}
+
+// Connections whose browser tab has not called the API for this long are closed, so that tabs closed
+// without disconnecting don't keep their clients and event logs in memory. 0 keeps connections forever.
+configurable int connectionIdleTimeoutSeconds = 1800;
+
+# Closes the connections of browser sessions that have stopped calling the API.
+#
+# + idleSeconds - How long a browser session must be inactive
+isolated function closeIdleConnections(decimal idleSeconds) {
+    foreach ConnectionSession session in connectionRegistry.idle(idleSeconds) {
+        oauthCallbackBroker.cancel(session.connectionId);
+        mcp:StreamableHttpClient mcpClient = session.mcpClient;
+        mcp:ClientError? closeError = mcpClient->close();
+        if closeError is mcp:ClientError {
+            log:printWarn("Closing an idle connection failed", connectionId = session.connectionId,
+                    'error = closeError);
+        }
+        session.setState("closed");
+        appendLifecycleEvent(session.connectionId, "connection.closed", "closed",
+                eventMessage = string `Closed after ${idleSeconds} seconds without requests from its browser tab`);
+        releaseConnection(session);
+    }
+}
+
+isolated function closeIdleConnectionsPeriodically() {
+    decimal idleSeconds = <decimal>connectionIdleTimeoutSeconds;
+    decimal interval = idleSeconds < 60d ? idleSeconds : 60d;
+    while true {
+        runtime:sleep(interval);
+        closeIdleConnections(idleSeconds);
+    }
+}
+
+function init() {
+    if connectionIdleTimeoutSeconds > 0 {
+        _ = start closeIdleConnectionsPeriodically();
+    }
 }
 
 // Joins an error's message with those of its causes, so a wrapped failure such as an Identity Provider

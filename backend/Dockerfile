@@ -18,4 +18,6 @@ COPY --from=build /app/target/bin/backend.jar backend.jar
 # Choreo requires a non-root UID between 10000 and 20000
 USER 10014
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "backend.jar"]
+# Use most of the container's memory for the heap (the JVM default is a quarter), and exit when it runs out
+# so the platform restarts the container instead of leaving a JVM that no longer answers requests
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-XX:+ExitOnOutOfMemoryError", "-jar", "backend.jar"]

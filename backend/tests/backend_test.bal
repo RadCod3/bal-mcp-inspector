@@ -1,5 +1,6 @@
 import ballerina/http;
 import ballerina/io;
+import ballerina/lang.runtime;
 import ballerina/mcp;
 import ballerina/test;
 
@@ -95,6 +96,36 @@ function testLifecycleEventsAreSequenced() {
         test:assertEquals(events[0].eventType, "connection.connected");
     }
     eventStore.close(connectionId);
+}
+
+@test:Config {}
+function testIdleConnectionsAreClosedAndReleased() returns error? {
+    mcp:StreamableHttpClient mcpClient = check new ("http://localhost:65534/mcp");
+    ConnectionSession idleSession = new ("browser-session-idle", "idle-connection",
+        "http://localhost:65534/mcp", mcpClient);
+    ConnectionSession activeSession = new ("browser-session-active", "active-connection",
+        "http://localhost:65534/mcp", mcpClient);
+    foreach ConnectionSession session in [idleSession, activeSession] {
+        eventStore.open(session.connectionId);
+        connectionRegistry.add(session);
+    }
+    runtime:sleep(1.2);
+    // A request from the active tab keeps its connections open
+    test:assertTrue(connectionRegistry.getOwned("browser-session-active", "active-connection") is ConnectionSession);
+
+    closeIdleConnections(1);
+
+    test:assertTrue(connectionRegistry.get("idle-connection") is ());
+    test:assertEquals(idleSession.status().state, "closed");
+    test:assertFalse(eventStore.isOpen("idle-connection"));
+    readonly & InspectorEvent[] events = eventStore.after("idle-connection", 0) ?: [];
+    test:assertEquals(events[events.length() - 1].eventType, "connection.closed");
+    test:assertTrue(connectionRegistry.get("active-connection") is ConnectionSession);
+
+    _ = connectionRegistry.remove(activeSession.connectionId);
+    foreach ConnectionSession session in [idleSession, activeSession] {
+        eventStore.remove(session.connectionId);
+    }
 }
 
 @test:Config {}

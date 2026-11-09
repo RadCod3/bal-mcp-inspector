@@ -622,7 +622,7 @@ export default function App() {
         const message = error instanceof Error ? error.message : "Could not load connection";
         if (message.toLowerCase().includes("not found")) {
           forgetSettings(editId);
-          setNotice(`Connection ${shortId(editId)} no longer exists. Connections are cleared when the backend restarts.`);
+          setNotice(`Connection ${shortId(editId)} no longer exists. Connections are closed after 30 minutes without an open tab, and when the backend restarts.`);
           navigate({ page: "new" }, { replace: true });
           void refreshConnections();
         } else {
@@ -649,7 +649,7 @@ export default function App() {
         if (message.toLowerCase().includes("not found")) {
           // A stale link or a restarted backend: forget the connection and offer a new one.
           if (localStorage.getItem(CONNECTION_KEY) === connectionId) localStorage.removeItem(CONNECTION_KEY);
-          setNotice(`Connection ${shortId(connectionId)} no longer exists. Connections are cleared when the backend restarts.`);
+          setNotice(`Connection ${shortId(connectionId)} no longer exists. Connections are closed after 30 minutes without an open tab, and when the backend restarts.`);
           navigate({ page: "new" }, { replace: true });
           void refreshConnections();
         } else {

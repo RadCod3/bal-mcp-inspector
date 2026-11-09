@@ -134,10 +134,7 @@ service /api/v1 on inspectorListener {
         }
         session.setState("closed");
         appendLifecycleEvent(connectionId, "connection.closed", "closed");
-        idTokenStore.remove(connectionId);
-        _ = connectionRegistry.removeOwned(browserSessionId, connectionId);
-        eventStore.close(connectionId);
-        _ = start expireEventJournal(connectionId);
+        releaseConnection(session);
         return <http:NoContent>{};
     }
 }
