@@ -28,6 +28,7 @@ const string CIMD_CALLBACK_PATH = "/callback";
 
 const string PRIVATE_KEY_JWT = "private_key_jwt";
 const string SELF_SIGNED_TLS_CLIENT_AUTH = "self_signed_tls_client_auth";
+const string JWT_BEARER_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:jwt-bearer";
 
 isolated function normalizedCimdBaseUrl() returns string {
     string baseUrl = cimdPublicBaseUrl.trim();
@@ -117,8 +118,8 @@ isolated function listCimdProfiles() returns CimdProfileInfo[] {
 
 isolated function buildCimdDocument(CimdProfile profile, json? suppliedJwks = ()) returns json|error {
     string[] grantTypes = profile == "none"
-        ? ["authorization_code", "refresh_token"]
-        : ["authorization_code", "refresh_token", "client_credentials"];
+        ? ["authorization_code", "refresh_token", JWT_BEARER_GRANT_TYPE]
+        : ["authorization_code", "refresh_token", "client_credentials", JWT_BEARER_GRANT_TYPE];
     boolean mutualTls = profile is CimdMutualTlsProfile;
     map<json> document = {
         "client_id": cimdProfileUrl(profile),

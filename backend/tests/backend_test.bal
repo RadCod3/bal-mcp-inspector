@@ -234,6 +234,8 @@ function testCimdProfileDocuments() returns error? {
         test:assertEquals(inlineValue["token_endpoint_auth_method"], "private_key_jwt");
         test:assertEquals(inlineValue["jwks"], jwks);
         test:assertFalse(inlineValue.hasKey("jwks_uri"));
+        test:assertEquals(inlineValue["grant_types"], ["authorization_code", "refresh_token", "client_credentials",
+            "urn:ietf:params:oauth:grant-type:jwt-bearer"]);
     }
 
     json uriValue = check buildCimdDocument("jwks_uri");
@@ -241,12 +243,16 @@ function testCimdProfileDocuments() returns error? {
     if uriValue is map<json> {
         test:assertEquals(uriValue["jwks_uri"], cimdPublicKeysUrl());
         test:assertFalse(uriValue.hasKey("jwks"));
+        test:assertEquals(uriValue["grant_types"], ["authorization_code", "refresh_token", "client_credentials",
+            "urn:ietf:params:oauth:grant-type:jwt-bearer"]);
     }
 
     json noneValue = check buildCimdDocument("none");
     test:assertTrue(noneValue is map<json>);
     if noneValue is map<json> {
         test:assertEquals(noneValue["token_endpoint_auth_method"], "none");
+        test:assertEquals(noneValue["grant_types"], ["authorization_code", "refresh_token",
+            "urn:ietf:params:oauth:grant-type:jwt-bearer"]);
         test:assertFalse(noneValue.hasKey("jwks"));
         test:assertFalse(noneValue.hasKey("jwks_uri"));
     }
@@ -277,7 +283,8 @@ function testCimdMutualTlsDocuments() returns error? {
         test:assertEquals(inlineValue["token_endpoint_auth_method"], "self_signed_tls_client_auth");
         test:assertEquals(inlineValue["jwks"], jwks);
         test:assertFalse(inlineValue.hasKey("token_endpoint_auth_signing_alg"));
-        test:assertEquals(inlineValue["grant_types"], ["authorization_code", "refresh_token", "client_credentials"]);
+        test:assertEquals(inlineValue["grant_types"], ["authorization_code", "refresh_token", "client_credentials",
+            "urn:ietf:params:oauth:grant-type:jwt-bearer"]);
     }
 
     json uriValue = check buildCimdDocument("mtls_jwks_uri");
